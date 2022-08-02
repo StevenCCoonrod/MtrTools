@@ -13,6 +13,6 @@ Houses tools for analyzing traceroute data.
 **no args**   &emsp;&emsp;&emsp;Will run a test method.
   
 ## Actions for set up:<br />
-  &emsp;Requires SQL Server
-  &emsp;Run the DB script batch file to establish the DB.<br />
-  &emsp;Enter your user id and password for both the sshHelpers and the sqlDataAccessor.
+  &emsp;Requires SQL Server <br />
+  &emsp;Run the dbScript/netopsToolsDB batch file to establish the DB.<br />
+  &emsp;Enter your user id and password in the sshHelpers.go and the sqlDataAccessor.go files.
