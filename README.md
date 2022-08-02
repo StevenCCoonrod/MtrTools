@@ -1,4 +1,4 @@
-# NetopsTools
+# MTR Tools
 
 Golang project for storing and retrieving MTR Data.<br />
 Retrieves traceroute data via SSH and inserts data into a Database.<br />
