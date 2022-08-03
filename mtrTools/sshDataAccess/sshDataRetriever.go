@@ -2,6 +2,7 @@ package sshDataAccess
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"time"
 
@@ -78,20 +79,20 @@ func runClientCommand(command string) (string, error) {
 	// connect to ssh server
 	conn, err := ssh.Dial("tcp", sshTargetHost, config)
 	if err != nil {
-		panic(err)
+		fmt.Println("Error connecting to SSH Server.\n" + err.Error())
 	}
 	defer conn.Close()
 
 	session, err := conn.NewSession()
 	if err != nil {
-		panic(err)
+		fmt.Println("Error beginning session on SSH Server.\n" + err.Error())
 	}
 	defer session.Close()
 
 	var buff bytes.Buffer
 	session.Stdout = &buff
 	if err := session.Run(command); err != nil {
-		panic(err)
+		fmt.Println("Error running command on SSH Server.\n" + err.Error())
 	}
 	return buff.String(), err
 }

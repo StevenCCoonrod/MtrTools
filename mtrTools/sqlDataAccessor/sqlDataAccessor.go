@@ -11,10 +11,11 @@ import (
 	_ "github.com/denisenkom/go-mssqldb"
 )
 
-var server = "localhost"
+//var server = "localhost"
+var server = "localhost\\MSSQLSERVER02"
 var port = 1433
-var user = ""
-var password = ""
+var user = "stevec"
+var password = "3brahman3"
 var database = "NetopsToolsDB"
 
 var db *sql.DB
@@ -26,7 +27,7 @@ func ConnectToDB() {
 	connString := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%d;database=%s",
 		server, user, password, port, database)
 
-	db, err = sql.Open("NetopsToolsDB", connString)
+	db, err = sql.Open(database, connString)
 	if err != nil {
 		panic("Error creating connection pool" + err.Error())
 	}
@@ -142,7 +143,7 @@ func SelectAllSyncboxes() []string {
 	ctx := context.Background()
 	err = db.PingContext(ctx)
 	if err != nil {
-		panic(err)
+		fmt.Println("Ping error: ", err.Error())
 	}
 
 	dataReturned, err := db.QueryContext(ctx, "sp_SelectAllSyncboxes")

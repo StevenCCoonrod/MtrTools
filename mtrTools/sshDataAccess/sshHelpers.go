@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-var sshUser string = ""
-var sshPassword string = ""
+var sshUser string = "stevec"
+var sshPassword string = "3brahman3"
 var sshTargetHost string = "master3.syncbak.com:22"
 var baseDirectory string = "/var/log/syncbak/catcher-mtrs/"
 
@@ -130,19 +130,20 @@ func parseSshDataIntoMtrReport(rawData string) []dataObjects.MtrReport {
 		//Loop through each raw report string and parse into an MtrReport object
 		for _, m := range rawMtrData {
 
-			if m != "" {
+			if m != "" && !strings.Contains(m, "<!") {
 				//Create new mtrReport
 				mtrReport := dataObjects.MtrReport{}
 				//Split data into lines
 				lines := strings.Split(m, "\n")
 				//Iterate through each line in the data
 				for i, l := range lines {
+					fmt.Println(l)
 					//If its the first line, parse the StartTime datetime
 					if i == 0 {
 						p := strings.TrimSpace(l)
 						startTime, err := time.Parse(time.ANSIC, p)
 						if err != nil {
-							panic(err)
+							fmt.Println("There was a problem parsing the mtr data.\n" + m + "\n" + err.Error())
 						}
 						mtrReport.StartTime = startTime
 						//If its the second line, remove everything that isn't the Syncbox ID
@@ -192,11 +193,13 @@ func parseSshDataIntoMtrReport(rawData string) []dataObjects.MtrReport {
 					}
 				}
 				//Verify the data center using the final hop hostname
-				if len(mtrReport.Hops) >= 1 {
-					lastHopHost := mtrReport.Hops[len(mtrReport.Hops)-1].Hostname
+				lastHopHost := mtrReport.Hops[len(mtrReport.Hops)-1].Hostname
+				if len(mtrReport.Hops) >= 1 && strings.Contains(lastHopHost, "util") {
 					lastHopDataCenter := strings.Replace(lastHopHost, "util", "", 1)
 					lastHopDataCenter = strings.Replace(lastHopDataCenter, "eqnx", "", 1)
 					mtrReport.DataCenter = lastHopDataCenter
+				} else {
+					mtrReport.DataCenter = "na"
 				}
 
 				mtrReports = append(mtrReports, mtrReport)

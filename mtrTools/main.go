@@ -38,6 +38,13 @@ func main() {
 		} else if isFlagPassed("start") && !isFlagPassed("end") {
 			if isFlagPassed("a") {
 				//Specific Time functions on ALL boxes
+				mtrReports := GetMtrData_SpecificTime(SyncboxList, startTime)
+				InsertMtrReportsIntoDB(mtrReports)
+				if isFlagPassed("p") {
+					for _, r := range mtrReports {
+						r.PrintReport()
+					}
+				}
 			} else {
 				//Specific Time functions on Specific boxes
 				mtrReports := GetMtrData_SpecificTime(syncboxes, startTime)
