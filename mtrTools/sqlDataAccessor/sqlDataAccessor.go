@@ -12,10 +12,10 @@ import (
 )
 
 //var server = "localhost"
-var server = "localhost\\MSSQLSERVER02"
+var server = "localhost"
 var port = 1433
-var user = "stevec"
-var password = "3brahman3"
+var user = ""
+var password = ""
 var database = "NetopsToolsDB"
 
 var db *sql.DB

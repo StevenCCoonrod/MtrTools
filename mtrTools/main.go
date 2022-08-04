@@ -67,7 +67,7 @@ func main() {
 	} else {
 		//No args given
 		//Use this to target a problem box or method
-		sqlDataAccessor.SelectMtrReportByID("kion-2309-2022-07-26-00-00-da-mtr-catcher.log")
+
 	}
 }
 
@@ -130,27 +130,6 @@ func InsertMtrReportsIntoDB(mtrReports []dataObjects.MtrReport) {
 		}
 	}
 }
-
-//Takes a slice of Syncbox ID's and retrieves
-//All log files in each Syncbox's directory for the given datetime
-// func GetMtrData_TargetedSyncboxSpecificTime(syncboxes []string, targetDate time.Time) []dataObjects.MtrReport {
-
-// 	var mtrReports []dataObjects.MtrReport
-
-// 	//For each argument (which should be a valid syncbox ID) attempt to retrieve log files
-// 	for _, syncbox := range syncboxes {
-// 		mtrReports = sshDataAccess.GetSyncboxMtrReports(strings.ToLower(syncbox), targetDate)
-
-// 		//If no data is returned
-// 		if len(mtrReports) == 0 {
-// 			fmt.Println("No data found for " + syncbox)
-// 		} else {
-// 			fmt.Println("Mtr Reports collected: " + fmt.Sprint(len(mtrReports)))
-// 		}
-// 	}
-
-// 	return mtrReports
-// }
 
 //-start <startTime> -end <endTime> <syncboxID> <syncboxID> ...
 //Retrieves all log files for the specified boxes between the two dates provided
