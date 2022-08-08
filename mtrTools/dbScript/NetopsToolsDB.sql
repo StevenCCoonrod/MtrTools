@@ -140,6 +140,7 @@ BEGIN
 			[SyncboxID],
 			[StartTime],
 			[DataCenter],
+			[MtrHopID],
 			[HopNumber],
 			[HostName],
 			[PacketLoss],
@@ -176,6 +177,7 @@ BEGIN
 			[SyncboxID],
 			[StartTime],
 			[DataCenter],
+			[MtrHopID],
 			[HopNumber],
 			[HostName],
 			[PacketLoss],
@@ -204,6 +206,7 @@ BEGIN
 			[SyncboxID],
 			[StartTime],
 			[DataCenter],
+			[MtrHopID],
 			[HopNumber],
 			[HostName],
 			[PacketLoss],
@@ -234,6 +237,7 @@ BEGIN
 			[SyncboxID],
 			[StartTime],
 			[DataCenter],
+			[MtrHopID],
 			[HopNumber],
 			[HostName],
 			[PacketLoss],
@@ -253,3 +257,36 @@ BEGIN
 END
 GO
 
+CREATE PROCEDURE [sp_SelectSyncboxMtrsByDCAndTimeframe]
+(
+	@SyncboxID			[VARCHAR](15),
+	@StartDatetime		[DATETIME],
+	@EndDatetime		[DATETIME],
+	@DataCenter			[VARCHAR](2)
+)
+AS
+BEGIN
+	SELECT 	[dbo].[MtrReport].[MtrReportID],
+			[SyncboxID],
+			[StartTime],
+			[DataCenter],
+			[MtrHopID],
+			[HopNumber],
+			[HostName],
+			[PacketLoss],
+			[PacketsSent],
+			[LastPingMS],
+			[AvgPingMS],
+			[BestPingMS],
+			[WorstPingMS],
+			[StandardDev]
+	FROM	[dbo].[MtrReport]
+			INNER JOIN [dbo].[MtrHop]
+		ON	[dbo].[MtrReport].[MtrReportID] = [dbo].[MtrHop].[MtrReportID]
+	WHERE 	[SyncboxID] = @SyncboxID
+	AND		[MtrReport].[StartTime] >= @StartDatetime
+	AND		[MtrReport].[StartTime] <= @EndDatetime
+	AND 	[MtrReport].[DataCenter] = @DataCenter
+	ORDER BY [MtrReportID]
+END
+GO

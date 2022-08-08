@@ -15,9 +15,13 @@ import (
 func GetSyncboxMtrReports(syncbox string, targetDate time.Time) []dataObjects.MtrReport {
 
 	mtrLogFilenames := getSyncboxLogFilenames(syncbox, targetDate)
+	fmt.Println("Got Log File names...")
 	rawMtrData := getSyncboxMtrData(syncbox, targetDate)
+	fmt.Println("Got Log Data...")
 	tempMtrReports := parseSshDataIntoMtrReport(rawMtrData)
+	fmt.Println("Parsed data into reports...")
 	validatedMtrReports := matchMtrDataWithFilenames(mtrLogFilenames, tempMtrReports)
+	fmt.Println("Validated Report ID...")
 
 	return validatedMtrReports
 }
@@ -51,9 +55,10 @@ func GetMtrData_SpecificTime(syncbox string, targetTime time.Time) []dataObjects
 	for d := targetTime; !d.After(endTime); d = d.AddDate(0, 0, 1) {
 
 		reports := GetSyncboxMtrReports(strings.ToLower(syncbox), d)
-
+		fmt.Println("Got unfiltered reports...")
 		unfilteredMtrReports = append(unfilteredMtrReports, reports...)
 	}
+
 	for _, r := range unfilteredMtrReports {
 		if r.StartTime.After(startTime) && r.StartTime.Before(endTime) {
 			mtrReports = append(mtrReports, r)
@@ -67,7 +72,7 @@ func GetMtrData_SpecificTime(syncbox string, targetTime time.Time) []dataObjects
 //This sets up the ssh connection and runs the given command
 func runClientCommand(command string) (string, error) {
 
-	//fmt.Println(command) //Not needed, used while testing
+	fmt.Println(command) //Not needed, used while testing
 
 	config := &ssh.ClientConfig{
 		User: sshUser,

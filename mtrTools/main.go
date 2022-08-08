@@ -13,15 +13,14 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-var SyncboxList []string
+var _SyncboxList []string
 
 func main() {
 
 	//Update the SyncboxList []string
 	UpdateSyncboxList()
 
-	startTime, endTime := setFlags()
-
+	startTime, endTime, DCFilter := setFlags()
 	syncboxes := flag.Args()
 
 	if len(os.Args) > 1 {
@@ -29,16 +28,40 @@ func main() {
 		if isFlagPassed("start") && isFlagPassed("end") {
 			if isFlagPassed("a") {
 				// Specific Window of Time Functions on ALL boxes
+				mtrReports := GetMtrData_SpecificTime(_SyncboxList, startTime)
+				InsertMtrReportsIntoDB(mtrReports)
+				if isFlagPassed("p") {
+					for _, r := range mtrReports {
+						r.PrintReport()
+					}
+				}
 			} else {
 				// Specific Window of Time Functions on Specific boxes
 				mtrReports := GetMtrData_SpecificTimeframe(syncboxes, startTime, endTime)
 				InsertMtrReportsIntoDB(mtrReports)
+				//fmt.Println(DCFilter)
+				if isFlagPassed("dc") {
+					start := time.Now().UTC().Add(-startTime)
+					end := time.Now().UTC().Add(-endTime)
+					var dcFilteredReports []dataObjects.MtrReport
+					for _, s := range syncboxes {
+						dcFilteredReports = append(dcFilteredReports, sqlDataAccessor.SelectSyncboxMtrReportsByDCAndTimeframe(s, start, end, DCFilter)...)
+
+					}
+
+				}
+				if isFlagPassed("p") {
+					for _, r := range mtrReports {
+						r.PrintReport()
+					}
+				}
+
 			}
 			//Specific Time Functions
 		} else if isFlagPassed("start") && !isFlagPassed("end") {
 			if isFlagPassed("a") {
 				//Specific Time functions on ALL boxes
-				mtrReports := GetMtrData_SpecificTime(SyncboxList, startTime)
+				mtrReports := GetMtrData_SpecificTime(_SyncboxList, startTime)
 				InsertMtrReportsIntoDB(mtrReports)
 				if isFlagPassed("p") {
 					for _, r := range mtrReports {
@@ -48,6 +71,7 @@ func main() {
 			} else {
 				//Specific Time functions on Specific boxes
 				mtrReports := GetMtrData_SpecificTime(syncboxes, startTime)
+
 				InsertMtrReportsIntoDB(mtrReports)
 				if isFlagPassed("p") {
 					for _, r := range mtrReports {
@@ -67,7 +91,8 @@ func main() {
 	} else {
 		//No args given
 		//Use this to target a problem box or method
-
+		report := sqlDataAccessor.SelectMtrReportByID("keye-2309-2022-08-04-14-55-da-mtr-catcher.log")
+		report.PrintReport()
 	}
 }
 
@@ -92,15 +117,15 @@ func UpdateSyncboxList() {
 		dbSyncboxList = sqlDataAccessor.SelectAllSyncboxes()
 	}
 	//Set the SyncboxList equal to the DB list
-	SyncboxList = dbSyncboxList
+	_SyncboxList = dbSyncboxList
 	//Print count of SyncboxList
-	fmt.Println("Total Syncboxes: " + fmt.Sprint(len(SyncboxList)) + "\n")
+	fmt.Println("Total Syncboxes: " + fmt.Sprint(len(_SyncboxList)) + "\n")
 }
 
 //Retrieves ALL MTR logs for ALL syncboxes in the SyncboxList
 func RunMtrRetrievalCycle() {
 	fmt.Println("============ Beginning Full MTR Sweep ============")
-	for _, s := range SyncboxList {
+	for _, s := range _SyncboxList {
 		var batch []string
 		batch = append(batch, s)
 		mtrReports := GetMtrData_SpecificTimeframe(
@@ -172,7 +197,7 @@ func isFlagPassed(name string) bool {
 	return found
 }
 
-func setFlags() (time.Duration, time.Duration) {
+func setFlags() (time.Duration, time.Duration, string) {
 	var all bool
 	flag.BoolVar(&all, "a", false, "Target ALL syncboxes")
 	defaultTime := time.Since(time.Now())
@@ -181,10 +206,10 @@ func setFlags() (time.Duration, time.Duration) {
 	var endTime time.Duration
 	flag.DurationVar(&endTime, "end", defaultTime, "Search timeframe end time")
 	var printResult bool
-	flag.BoolVar(&printResult, "p", false, "Print results to command-line")
-	// var syncbox string
-	// flag.StringVar(&syncbox, "s", "", "Target syncbox(es)")
+	flag.BoolVar(&printResult, "p", false, "Print search results to command-line")
+	var filterByDataCenter string
+	flag.StringVar(&filterByDataCenter, "dc", "", "Filter search results by data center")
 
 	flag.Parse()
-	return startTime, endTime
+	return startTime, endTime, filterByDataCenter
 }

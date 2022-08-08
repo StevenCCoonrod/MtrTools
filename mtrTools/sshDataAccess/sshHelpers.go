@@ -123,7 +123,7 @@ func parseSshDataIntoMtrReport(rawData string) []dataObjects.MtrReport {
 
 	//rawData should contain ALL mtr data for ALL mtr log files in a specific syncbox directory
 	rawMtrData := strings.Split(rawData, "Start: ")
-	if len(rawData) > 1 {
+	if len(rawMtrData) > 1 {
 		//At this point, the full data string should be split back into
 		//strings containing the data for each individual log file
 
@@ -137,7 +137,9 @@ func parseSshDataIntoMtrReport(rawData string) []dataObjects.MtrReport {
 				lines := strings.Split(m, "\n")
 				//Iterate through each line in the data
 				for i, l := range lines {
+
 					fmt.Println(l)
+
 					//If its the first line, parse the StartTime datetime
 					if i == 0 {
 						p := strings.TrimSpace(l)
@@ -158,43 +160,52 @@ func parseSshDataIntoMtrReport(rawData string) []dataObjects.MtrReport {
 							hop := dataObjects.MtrHop{}
 							//Split the line by fields and parse a new hop
 							f := strings.Fields(l)
-							hn := f[0]
-							hn = strings.Replace(hn, ".|--", "", 1)
-							hop.HopNumber = ParseStringToInt(hn)
-
-							hop.Hostname = f[1]
 
 							//Painful way of checking that fields are not null
-							if len(f) > 2 {
-								pl := strings.Replace(f[2], "%", "", 1)
-								hop.PacketLoss = ParseStringToFloat32(pl)
+							if len(f) > 0 {
+								hn := f[0]
+								hn = strings.Replace(hn, ".|--", "", 1)
+								hop.HopNumber = ParseStringToInt(hn)
+								if len(f) > 1 {
+									hop.Hostname = f[1]
+								}
+								if len(f) > 2 {
+									pl := strings.Replace(f[2], "%", "", 1)
+									hop.PacketLoss = ParseStringToFloat32(pl)
+								}
+								if len(f) > 3 {
+									hop.PacketsSent = ParseStringToInt(f[3])
+								}
+								if len(f) > 4 {
+									hop.LastPing = ParseStringToFloat32(f[4])
+								}
+								if len(f) > 5 {
+									hop.AveragePing = ParseStringToFloat32(f[5])
+								}
+								if len(f) > 6 {
+									hop.BestPing = ParseStringToFloat32(f[6])
+								}
+								if len(f) > 7 {
+									hop.WorstPing = ParseStringToFloat32(f[7])
+								}
+								if len(f) > 8 {
+									hop.StdDev = ParseStringToFloat32(f[8])
+								}
+								mtrReport.Hops = append(mtrReport.Hops, hop)
 							}
-							if len(f) > 3 {
-								hop.PacketsSent = ParseStringToInt(f[3])
-							}
-							if len(f) > 4 {
-								hop.LastPing = ParseStringToFloat32(f[4])
-							}
-							if len(f) > 5 {
-								hop.AveragePing = ParseStringToFloat32(f[5])
-							}
-							if len(f) > 6 {
-								hop.BestPing = ParseStringToFloat32(f[6])
-							}
-							if len(f) > 7 {
-								hop.WorstPing = ParseStringToFloat32(f[7])
-							}
-							if len(f) > 8 {
-								hop.StdDev = ParseStringToFloat32(f[8])
-							}
-
-							mtrReport.Hops = append(mtrReport.Hops, hop)
 						}
 					}
 				}
-				//Verify the data center using the final hop hostname
-				lastHopHost := mtrReport.Hops[len(mtrReport.Hops)-1].Hostname
+
+				fmt.Println(len(mtrReport.Hops))
+				lastHopHost := "No Hops in Report"
+				if len(mtrReport.Hops) > 0 {
+					//Verify the data center using the final hop hostname
+					lastHopHost = mtrReport.Hops[len(mtrReport.Hops)-1].Hostname
+				}
+
 				if len(mtrReport.Hops) >= 1 && strings.Contains(lastHopHost, "util") {
+
 					lastHopDataCenter := strings.Replace(lastHopHost, "util", "", 1)
 					lastHopDataCenter = strings.Replace(lastHopDataCenter, "eqnx", "", 1)
 					mtrReport.DataCenter = lastHopDataCenter

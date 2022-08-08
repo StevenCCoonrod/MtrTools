@@ -162,9 +162,9 @@ func SelectAllSyncboxes() []string {
 	return syncboxList
 }
 
-func SelectMtrReportByID(mtrReportID string) bool {
+func SelectMtrReportByID(mtrReportID string) dataObjects.MtrReport {
+	var report dataObjects.MtrReport
 	var err error
-	var mtrExists bool
 	connString := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%d;database=%s;",
 		server, user, password, port, database)
 
@@ -184,28 +184,59 @@ func SelectMtrReportByID(mtrReportID string) bool {
 		fmt.Println("Error selecting mtr report. ", err.Error())
 	}
 
-	//log.Printf("Connected!\n")
 	db.Close()
 
+	reportsReturned := parseSqlDataIntoReport(dataReturned)
+
+	//Troubleshooting
+	for _, r := range reportsReturned {
+		r.PrintReport()
+	}
+
+	if len(reportsReturned) > 0 {
+		report = reportsReturned[0]
+	} else {
+		report = dataObjects.MtrReport{}
+	}
+
+	dataReturned.Close()
+
+	return report
+}
+
+func parseSqlDataIntoReport(sqlRowData *sql.Rows) []dataObjects.MtrReport {
+	var reports []dataObjects.MtrReport
+	var report dataObjects.MtrReport
 	var reportID, syncboxID, dataCenter, hostName *string
 	var startTime *time.Time
-	var hopNumber, packetsSent *int
+	var hopID, hopNumber, packetsSent *int
 	var packetLoss, last, avg, best, worst, stdDev *float32
-	for dataReturned.Next() {
-		if err := dataReturned.Scan(&reportID, &syncboxID, &startTime, &dataCenter, &hopNumber,
+	for sqlRowData.Next() {
+		if err := sqlRowData.Scan(&reportID, &syncboxID, &startTime, &dataCenter, &hopID, &hopNumber,
 			&hostName, &packetLoss, &packetsSent, &last, &avg, &best, &worst, &stdDev); err != nil {
-
 			panic(err.Error())
+		} else {
+			if *reportID == report.ReportID {
+				hop := dataObjects.MtrHop{HopID: *hopID, HopNumber: *hopNumber, Hostname: *hostName,
+					PacketLoss: *packetLoss, PacketsSent: *packetsSent, LastPing: *last, AveragePing: *avg,
+					BestPing: *best, WorstPing: *worst, StdDev: *stdDev}
+				report.Hops = append(report.Hops, hop)
+			} else {
+				reports = append(reports, report)
+				report = dataObjects.MtrReport{}
+				report = dataObjects.MtrReport{ReportID: *reportID, SyncboxID: *syncboxID, StartTime: *startTime, DataCenter: *dataCenter}
+				hop := dataObjects.MtrHop{HopID: *hopID, HopNumber: *hopNumber, Hostname: *hostName,
+					PacketLoss: *packetLoss, PacketsSent: *packetsSent, LastPing: *last, AveragePing: *avg,
+					BestPing: *best, WorstPing: *worst, StdDev: *stdDev}
+				report.Hops = append(report.Hops, hop)
+			}
+			fmt.Println(*reportID + "|" + report.ReportID)
+
 		}
-	}
-	dataReturned.Close()
-	if reportID == nil {
-		mtrExists = false
-	} else {
-		mtrExists = true
+		fmt.Println(len(reports))
 	}
 
-	return mtrExists
+	return reports
 }
 
 func CheckIfMtrReportExists(mtrReportID string) bool {
@@ -248,4 +279,9 @@ func CheckIfMtrReportExists(mtrReportID string) bool {
 	}
 
 	return mtrExists
+}
+
+func SelectSyncboxMtrReportsByDCAndTimeframe(syncbox string, startTime time.Time, endTime time.Time, datacenter string) []dataObjects.MtrReport {
+
+	return make([]dataObjects.MtrReport, 0)
 }
