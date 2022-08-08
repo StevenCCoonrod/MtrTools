@@ -91,8 +91,12 @@ func main() {
 	} else {
 		//No args given
 		//Use this to target a problem box or method
-		report := sqlDataAccessor.SelectMtrReportByID("keye-2309-2022-08-04-14-55-da-mtr-catcher.log")
-		report.PrintReport()
+		reports := []string{"keye-2309-2022-08-04-14-55-da-mtr-catcher.log", "keye-2309-2022-08-04-14-57-dc-mtr-catcher.log"}
+		report := sqlDataAccessor.SelectMtrReportByID(reports)
+		for _, r := range report {
+			r.PrintReport()
+		}
+
 	}
 }
 

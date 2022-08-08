@@ -14,8 +14,8 @@ import (
 //var server = "localhost"
 var server = "localhost"
 var port = 1433
-var user = ""
-var password = ""
+var user = "stevec"
+var password = "MoM0H@$ha$hin"
 var database = "NetopsToolsDB"
 
 var db *sql.DB
@@ -162,8 +162,8 @@ func SelectAllSyncboxes() []string {
 	return syncboxList
 }
 
-func SelectMtrReportByID(mtrReportID string) dataObjects.MtrReport {
-	var report dataObjects.MtrReport
+func SelectMtrReportByID(reportIds []string) []dataObjects.MtrReport {
+
 	var err error
 	connString := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%d;database=%s;",
 		server, user, password, port, database)
@@ -178,30 +178,26 @@ func SelectMtrReportByID(mtrReportID string) dataObjects.MtrReport {
 	if err != nil {
 		fmt.Println("Error selecting mtr report. ", err.Error())
 	}
+	var dataReturned *sql.Rows
+	var reportsReturned []dataObjects.MtrReport
+	defer db.Close()
+	for _, r := range reportIds {
+		dataReturned, err = db.QueryContext(ctx, "sp_SelectMtrReportByID", r)
+		if err != nil {
+			fmt.Println("Error selecting mtr report. ", err.Error())
+		}
 
-	dataReturned, err := db.QueryContext(ctx, "sp_SelectMtrReportByID", mtrReportID)
-	if err != nil {
-		fmt.Println("Error selecting mtr report. ", err.Error())
+		reportsReturned = parseSqlDataIntoReport(dataReturned)
 	}
-
-	db.Close()
-
-	reportsReturned := parseSqlDataIntoReport(dataReturned)
 
 	//Troubleshooting
-	for _, r := range reportsReturned {
-		r.PrintReport()
-	}
-
-	if len(reportsReturned) > 0 {
-		report = reportsReturned[0]
-	} else {
-		report = dataObjects.MtrReport{}
-	}
+	// for _, r := range reportsReturned {
+	// 	r.PrintReport()
+	// }
 
 	dataReturned.Close()
 
-	return report
+	return reportsReturned
 }
 
 func parseSqlDataIntoReport(sqlRowData *sql.Rows) []dataObjects.MtrReport {
@@ -216,12 +212,15 @@ func parseSqlDataIntoReport(sqlRowData *sql.Rows) []dataObjects.MtrReport {
 			&hostName, &packetLoss, &packetsSent, &last, &avg, &best, &worst, &stdDev); err != nil {
 			panic(err.Error())
 		} else {
+			//fmt.Println(*reportID == report.ReportID)
 			if *reportID == report.ReportID {
 				hop := dataObjects.MtrHop{HopID: *hopID, HopNumber: *hopNumber, Hostname: *hostName,
 					PacketLoss: *packetLoss, PacketsSent: *packetsSent, LastPing: *last, AveragePing: *avg,
 					BestPing: *best, WorstPing: *worst, StdDev: *stdDev}
 				report.Hops = append(report.Hops, hop)
+				//fmt.Println(len(report.Hops))
 			} else {
+				//fmt.Println(len(report.Hops))
 				reports = append(reports, report)
 				report = dataObjects.MtrReport{}
 				report = dataObjects.MtrReport{ReportID: *reportID, SyncboxID: *syncboxID, StartTime: *startTime, DataCenter: *dataCenter}
@@ -230,12 +229,18 @@ func parseSqlDataIntoReport(sqlRowData *sql.Rows) []dataObjects.MtrReport {
 					BestPing: *best, WorstPing: *worst, StdDev: *stdDev}
 				report.Hops = append(report.Hops, hop)
 			}
-			fmt.Println(*reportID + "|" + report.ReportID)
+			//fmt.Println(*reportID + "|" + report.ReportID)
 
 		}
-		fmt.Println(len(reports))
-	}
 
+		// for _, r := range reports {
+		// 	fmt.Println(r)
+		// }
+
+	}
+	reports = append(reports, report)
+
+	//fmt.Println(reports)
 	return reports
 }
 
