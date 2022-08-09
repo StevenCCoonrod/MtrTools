@@ -1,0 +1,83 @@
+Use Cases:
+
+• View All Reports For Specific Syncboxes
+	-Get Syncboxes to target
+	-Retrieve any new MTR's From SSH
+	-Insert any new MTR's into the DB
+		-Check if the reportID(log filename) is in the DB
+		-If not, insert the report
+	-Retrieve all MTR's from the DB for the targeted Syncboxes
+
+• View All Reports For Specific Syncbox Between Two Datetimes
+	-Get Syncboxes to target
+	-Get target Start and End datetimes
+	-Retrieve all MTR's From SSH between the two datetimes
+	-Insert any new MTR's into the DB
+		-Check if the reportID(log filename) is in the DB
+		-If not, insert the report
+	-Retrieve all MTR's from the DB for the targeted Syncboxes between the specified times
+
+• View All Reports For Specific Syncboxes At A Specific Time
+	-Get Syncboxes to target
+	-Get Start time to target
+	-Retrieve any MTR's From SSH at the specified time
+	-Insert any new MTR's into the DB
+		-Check if the reportID(log filename) is in the DB
+		-If not, insert the report
+	-Retrieve all MTR's from the DB for the targeted Syncboxes
+
+
+• View All Reports For Specific Syncboxes For A Specific Data Center
+	-Get Syncboxes to target
+	-Get Data Center to target
+	-Retrieve any new MTR's From SSH
+	-Insert any new MTR's into the DB
+		-Check if the reportID(log filename) is in the DB
+		-If not, insert the report
+	-Retrieve all MTR's from the DB for the targeted Syncboxes that have the targeted Data Center
+
+◘ View All Reports For Specific Syncboxes With High Packet Loss% 
+	-Get syncboxes to target
+	-Retrieve all mtr's from the DB for the targeted Syncboxes that have any hops with packet loss % above the threshold
+
+
+
+main()
+	-Get up-to-date list of syncboxes
+		-Retrieve list from SSH server
+			-Filter to keep only 2309's
+		-Retrieve list from DB
+		-Compare and add any SSH syncboxes not in the DB
+		Retrieve up-to-date list from DB
+	-Set flags and flag values
+	
+	1) IF there are arguments provided
+		A) IF there is a start && end time provided
+			A1) IF "-a" was provided
+				•View ALL Reports within the two times
+				A1a) IF "-dc" provided
+					• Filter for Data Center provided
+			A2) ELSE
+				•View all Reports for Specific Syncboxes within the two times
+				A2a) IF "-dc" provided
+					• Filter for Data Center provided
+		B) IF there is only a start time provided
+			B1) IF "-a" was provided
+				•View ALL Reports for the specified time
+				B1a) IF "-dc" provided
+					• Filter for Data Center provided
+			B2) ELSE
+				•View all Reports for Specific Syncboxes for the specified time
+				B2a) IF "-dc" provided
+					• Filter for Data Center provided
+		C) ELSE (No time parameters)
+			C1) IF "-a" was provided
+				•View ALL Reports for ALL Syncboxes
+				C1a) IF "-dc" provided
+					• Filter for Data Center provided
+			C2) ELSE
+				•View all Reports for Specific Syncboxes
+				C2a) IF "-dc" provided
+					• Filter for Data Center provided
+	2) ELSE (No arguements provided)
+		Test Methods

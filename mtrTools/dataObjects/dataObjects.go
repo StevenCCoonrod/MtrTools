@@ -28,6 +28,7 @@ type MtrReport struct {
 	Hops       []MtrHop
 }
 
+//Prints out an Mtr Report with properly aligned fields
 func (rpt MtrReport) PrintReport() {
 	fmt.Println(rpt.ReportID)
 	fmt.Println(rpt.SyncboxID)

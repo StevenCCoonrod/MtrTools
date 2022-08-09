@@ -138,7 +138,7 @@ func parseSshDataIntoMtrReport(rawData string) []dataObjects.MtrReport {
 				//Iterate through each line in the data
 				for i, l := range lines {
 
-					fmt.Println(l)
+					//fmt.Println(l)
 
 					//If its the first line, parse the StartTime datetime
 					if i == 0 {
@@ -164,7 +164,9 @@ func parseSshDataIntoMtrReport(rawData string) []dataObjects.MtrReport {
 							//Painful way of checking that fields are not null
 							if len(f) > 0 {
 								hn := f[0]
-								hn = strings.Replace(hn, ".|--", "", 1)
+								hn = strings.Replace(hn, ".", "", 1) // Why? random mtr's threw errors because the hop number (f[0]) only had a "." instead of ".|--"
+								hn = strings.Replace(hn, "|--", "", 1)
+
 								hop.HopNumber = ParseStringToInt(hn)
 								if len(f) > 1 {
 									hop.Hostname = f[1]
@@ -197,7 +199,6 @@ func parseSshDataIntoMtrReport(rawData string) []dataObjects.MtrReport {
 					}
 				}
 
-				fmt.Println(len(mtrReport.Hops))
 				lastHopHost := "No Hops in Report"
 				if len(mtrReport.Hops) > 0 {
 					//Verify the data center using the final hop hostname

@@ -72,7 +72,7 @@ func GetMtrData_SpecificTime(syncbox string, targetTime time.Time) []dataObjects
 //This sets up the ssh connection and runs the given command
 func runClientCommand(command string) (string, error) {
 
-	fmt.Println(command) //Not needed, used while testing
+	//fmt.Println(command) //Not needed, used while testing
 
 	config := &ssh.ClientConfig{
 		User: sshUser,

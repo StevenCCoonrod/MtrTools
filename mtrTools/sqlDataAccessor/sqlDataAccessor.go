@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"mtrTools/dataObjects"
+	"strings"
 	"time"
 
 	_ "github.com/denisenkom/go-mssqldb"
@@ -186,8 +187,10 @@ func SelectMtrReportByID(reportIds []string) []dataObjects.MtrReport {
 		if err != nil {
 			fmt.Println("Error selecting mtr report. ", err.Error())
 		}
+		parsedReports := parseSqlDataIntoReport(dataReturned)
 
-		reportsReturned = parseSqlDataIntoReport(dataReturned)
+		reportsReturned = append(reportsReturned, parsedReports...)
+
 	}
 
 	//Troubleshooting
@@ -207,40 +210,30 @@ func parseSqlDataIntoReport(sqlRowData *sql.Rows) []dataObjects.MtrReport {
 	var startTime *time.Time
 	var hopID, hopNumber, packetsSent *int
 	var packetLoss, last, avg, best, worst, stdDev *float32
+	report = dataObjects.MtrReport{}
 	for sqlRowData.Next() {
 		if err := sqlRowData.Scan(&reportID, &syncboxID, &startTime, &dataCenter, &hopID, &hopNumber,
 			&hostName, &packetLoss, &packetsSent, &last, &avg, &best, &worst, &stdDev); err != nil {
 			panic(err.Error())
 		} else {
-			//fmt.Println(*reportID == report.ReportID)
 			if *reportID == report.ReportID {
 				hop := dataObjects.MtrHop{HopID: *hopID, HopNumber: *hopNumber, Hostname: *hostName,
 					PacketLoss: *packetLoss, PacketsSent: *packetsSent, LastPing: *last, AveragePing: *avg,
 					BestPing: *best, WorstPing: *worst, StdDev: *stdDev}
 				report.Hops = append(report.Hops, hop)
-				//fmt.Println(len(report.Hops))
 			} else {
-				//fmt.Println(len(report.Hops))
-				reports = append(reports, report)
-				report = dataObjects.MtrReport{}
+				if report.ReportID != "" {
+					reports = append(reports, report)
+				}
 				report = dataObjects.MtrReport{ReportID: *reportID, SyncboxID: *syncboxID, StartTime: *startTime, DataCenter: *dataCenter}
 				hop := dataObjects.MtrHop{HopID: *hopID, HopNumber: *hopNumber, Hostname: *hostName,
 					PacketLoss: *packetLoss, PacketsSent: *packetsSent, LastPing: *last, AveragePing: *avg,
 					BestPing: *best, WorstPing: *worst, StdDev: *stdDev}
 				report.Hops = append(report.Hops, hop)
 			}
-			//fmt.Println(*reportID + "|" + report.ReportID)
-
 		}
-
-		// for _, r := range reports {
-		// 	fmt.Println(r)
-		// }
-
 	}
-	reports = append(reports, report)
 
-	//fmt.Println(reports)
 	return reports
 }
 
@@ -258,7 +251,6 @@ func CheckIfMtrReportExists(mtrReportID string) bool {
 	ctx := context.Background()
 	err = db.PingContext(ctx)
 	if err != nil {
-		time.Sleep(50 * time.Millisecond)
 		fmt.Println("Error checking mtr report. ", err.Error())
 	}
 
@@ -288,5 +280,36 @@ func CheckIfMtrReportExists(mtrReportID string) bool {
 
 func SelectSyncboxMtrReportsByDCAndTimeframe(syncbox string, startTime time.Time, endTime time.Time, datacenter string) []dataObjects.MtrReport {
 
-	return make([]dataObjects.MtrReport, 0)
+	var err error
+	connString := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%d;database=%s;",
+		server, user, password, port, database)
+
+	db, err = sql.Open("sqlserver", connString)
+	if err != nil {
+		panic("Error creating connection pool \n" + err.Error())
+	}
+
+	ctx := context.Background()
+	err = db.PingContext(ctx)
+	if err != nil {
+		fmt.Println("Error selecting mtr report. ", err.Error())
+	}
+	var dataReturned *sql.Rows
+	var reportsReturned []dataObjects.MtrReport
+	defer db.Close()
+	dataReturned, err = db.QueryContext(ctx, "sp_SelectSyncboxMtrsByDCAndTimeframe", syncbox, startTime, endTime, strings.ToLower(datacenter))
+	if err != nil {
+		fmt.Println("Error selecting mtr report. ", err.Error())
+	}
+
+	reportsReturned = append(reportsReturned, parseSqlDataIntoReport(dataReturned)...)
+
+	//Troubleshooting
+	// for _, r := range reportsReturned {
+	// 	r.PrintReport()
+	// }
+
+	dataReturned.Close()
+
+	return reportsReturned
 }

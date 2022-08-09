@@ -28,6 +28,7 @@ func main() {
 		if isFlagPassed("start") && isFlagPassed("end") {
 			if isFlagPassed("a") {
 				// Specific Window of Time Functions on ALL boxes
+				fmt.Println("Initiating Full Timeframe Sweep at ", time.Now().UTC())
 				mtrReports := GetMtrData_SpecificTime(_SyncboxList, startTime)
 				InsertMtrReportsIntoDB(mtrReports)
 				if isFlagPassed("p") {
@@ -38,6 +39,7 @@ func main() {
 			} else {
 				// Specific Window of Time Functions on Specific boxes
 				mtrReports := GetMtrData_SpecificTimeframe(syncboxes, startTime, endTime)
+				fmt.Println("Reports found in time frame: ", len(mtrReports))
 				InsertMtrReportsIntoDB(mtrReports)
 				//fmt.Println(DCFilter)
 				if isFlagPassed("dc") {
@@ -46,11 +48,15 @@ func main() {
 					var dcFilteredReports []dataObjects.MtrReport
 					for _, s := range syncboxes {
 						dcFilteredReports = append(dcFilteredReports, sqlDataAccessor.SelectSyncboxMtrReportsByDCAndTimeframe(s, start, end, DCFilter)...)
-
 					}
-
+					fmt.Println("Filtered reports returned from DB: ", len(dcFilteredReports))
+					if isFlagPassed("p") {
+						for _, r := range dcFilteredReports {
+							r.PrintReport()
+						}
+					}
 				}
-				if isFlagPassed("p") {
+				if isFlagPassed("p") && !isFlagPassed("dc") {
 					for _, r := range mtrReports {
 						r.PrintReport()
 					}
@@ -92,11 +98,7 @@ func main() {
 		//No args given
 		//Use this to target a problem box or method
 		reports := []string{"keye-2309-2022-08-04-14-55-da-mtr-catcher.log", "keye-2309-2022-08-04-14-57-dc-mtr-catcher.log"}
-		report := sqlDataAccessor.SelectMtrReportByID(reports)
-		for _, r := range report {
-			r.PrintReport()
-		}
-
+		sqlDataAccessor.SelectMtrReportByID(reports)
 	}
 }
 
@@ -128,6 +130,7 @@ func UpdateSyncboxList() {
 
 //Retrieves ALL MTR logs for ALL syncboxes in the SyncboxList
 func RunMtrRetrievalCycle() {
+	fmt.Println("Initiating Full Sweep at ", time.Now().UTC())
 	fmt.Println("============ Beginning Full MTR Sweep ============")
 	for _, s := range _SyncboxList {
 		var batch []string
