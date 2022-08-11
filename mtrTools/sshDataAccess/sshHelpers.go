@@ -9,8 +9,8 @@ import (
 )
 
 var sshUser string = "stevec"
-var sshPassword string = "3brahman3"
-var sshTargetHost string = "master3.syncbak.com:22"
+var sshPassword string = ""
+var sshTargetHost string = ""
 var baseDirectory string = "/var/log/syncbak/catcher-mtrs/"
 
 // Retrieves a list of syncboxes from the current day's mtr directory
@@ -52,7 +52,7 @@ func getSyncboxLogFilenames(syncbox string, targetDate time.Time) []string {
 		syncbox + "/"
 	dataReturned_1, err := runClientCommand(command1)
 	if err != nil {
-
+		fmt.Println(err)
 	}
 	return strings.Split(dataReturned_1, "\n")
 }

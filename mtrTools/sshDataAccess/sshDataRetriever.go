@@ -15,13 +15,13 @@ import (
 func GetSyncboxMtrReports(syncbox string, targetDate time.Time) []dataObjects.MtrReport {
 
 	mtrLogFilenames := getSyncboxLogFilenames(syncbox, targetDate)
-	fmt.Println("Got Log File names...")
+	//fmt.Println("Got Log File names...")
 	rawMtrData := getSyncboxMtrData(syncbox, targetDate)
-	fmt.Println("Got Log Data...")
+	//fmt.Println("Got Log Data...")
 	tempMtrReports := parseSshDataIntoMtrReport(rawMtrData)
-	fmt.Println("Parsed data into reports...")
+	//fmt.Println("Parsed data into reports...")
 	validatedMtrReports := matchMtrDataWithFilenames(mtrLogFilenames, tempMtrReports)
-	fmt.Println("Validated Report ID...")
+	//fmt.Println("Validated Report ID...")
 
 	return validatedMtrReports
 }
@@ -55,7 +55,7 @@ func GetMtrData_SpecificTime(syncbox string, targetTime time.Time) []dataObjects
 	for d := targetTime; !d.After(endTime); d = d.AddDate(0, 0, 1) {
 
 		reports := GetSyncboxMtrReports(strings.ToLower(syncbox), d)
-		fmt.Println("Got unfiltered reports...")
+		//fmt.Println("Got unfiltered reports...")
 		unfilteredMtrReports = append(unfilteredMtrReports, reports...)
 	}
 
