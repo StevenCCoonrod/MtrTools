@@ -18,7 +18,7 @@ Use Cases:
 	-Retrieve all MTR's from the DB for the targeted Syncboxes between the specified times
 
 • View All Reports For Specific Syncboxes At A Specific Time
-	-Get Syncboxes to target
+	-Get Syncboxes to target 
 	-Get Start time to target
 	-Retrieve any MTR's From SSH at the specified time
 	-Insert any new MTR's into the DB
@@ -79,5 +79,5 @@ main()
 				•View all Reports for Specific Syncboxes
 				C2a) IF "-dc" provided
 					• Filter for Data Center provided
-	2) ELSE (No arguements provided)
+	2) ELSE (No arguments provided)
 		Test Methods

@@ -9,8 +9,8 @@ import (
 )
 
 var sshUser string = "stevec"
-var sshPassword string = ""
-var sshTargetHost string = ""
+var sshPassword string = "3brahman3"
+var sshTargetHost string = "master3.syncbak.com:22"
 var baseDirectory string = "/var/log/syncbak/catcher-mtrs/"
 
 // Retrieves a list of syncboxes from the current day's mtr directory

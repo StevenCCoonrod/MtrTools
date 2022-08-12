@@ -85,13 +85,15 @@ func getMtrData_SpecificTimeframe(syncboxes []string, startTime time.Duration, e
 
 	start := time.Now().UTC().Add(-startTime)
 	end := time.Now().UTC().Add(-endTime)
-	fmt.Println("StartTime: " + fmt.Sprint(start) + " | EndTime: " + fmt.Sprint(end))
+	fmt.Println("StartTime: " + fmt.Sprint(start) + "\nEndTime: " + fmt.Sprint(end))
+	if isFlagPassed("dc") {
+		fmt.Println("Data Center: " + strings.ToUpper(DCFilter))
+	}
 
 	//For each syncbox provided, Check SSH, Insert any new reports, and return all reports found in DB
 	for _, s := range syncboxes {
 		//Check SSH
 		batch = sshDataAccess.GetMtrData_SpecificTimeframe(s, start, end)
-		fmt.Println(len(batch))
 		//Insert any new reports into the DB
 		insertMtrReportsIntoDB(batch)
 
@@ -102,6 +104,8 @@ func getMtrData_SpecificTimeframe(syncboxes []string, startTime time.Duration, e
 		} else {
 			batch = sqlDataAccessor.SelectMtrReportsByID(batch)
 		}
+
+		fmt.Println("Reports found for", s, ":", len(batch))
 
 		if isFlagPassed("p") {
 			for _, r := range batch {
@@ -120,16 +124,16 @@ func getMtrData_SpecificTimeframe(syncboxes []string, startTime time.Duration, e
 func getMtrData_SpecificTime(syncboxes []string, targetTime time.Duration, DCFilter string) []dataObjects.MtrReport {
 	var mtrReports []dataObjects.MtrReport
 	var batch []dataObjects.MtrReport
-	start := time.Now().UTC().Add(-(targetTime - (time.Minute * 10)))
-	end := time.Now().UTC().Add(-(targetTime + (time.Minute * 10)))
-
+	start := time.Now().UTC().Add(-(targetTime + (time.Minute * 3)))
+	end := time.Now().UTC().Add(-(targetTime - (time.Minute * 3)))
+	//fmt.Println(start, " | ", end)
 	//For each syncbox provided, Check SSH, Insert any new reports, and return all reports found in DB
 	for _, s := range syncboxes {
 		//Check SSH
 		batch = sshDataAccess.GetMtrData_SpecificTimeframe(s, start, end)
-
+		//fmt.Println(len(batch))
 		//Insert any new reports into the DB
-		insertMtrReportsIntoDB(mtrReports)
+		insertMtrReportsIntoDB(batch)
 
 		//Select the matching reports from the DB
 		if isFlagPassed("dc") {
@@ -138,14 +142,16 @@ func getMtrData_SpecificTime(syncboxes []string, targetTime time.Duration, DCFil
 		} else {
 			batch = sqlDataAccessor.SelectMtrReportsByID(batch)
 		}
-		fmt.Println(len(batch))
+		//fmt.Println(len(batch))
 		if isFlagPassed("p") {
 			for _, r := range batch {
 				r.PrintReport()
 			}
 		}
+		fmt.Println(len(batch), "report(s) collected for", s)
 		mtrReports = append(mtrReports, batch...)
 	}
+
 	return mtrReports
 }
 
@@ -155,6 +161,7 @@ func insertMtrReportsIntoDB(mtrReports []dataObjects.MtrReport) {
 		for _, r := range mtrReports {
 			//Check if the Report already exists in the DB
 			exists := sqlDataAccessor.CheckIfMtrReportExists(r.ReportID)
+			//fmt.Println("Inserting " + r.ReportID)
 			//If not, insert it
 			if !exists {
 				//fmt.Println("Inserting report: ", r.ReportID)
