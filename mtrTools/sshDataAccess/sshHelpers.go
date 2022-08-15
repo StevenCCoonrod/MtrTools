@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-var sshUser string = "stevec"
-var sshPassword string = "3brahman3"
+var sshUser string = ""
+var sshPassword string = ""
 var sshTargetHost string = "master3.syncbak.com:22"
 var baseDirectory string = "/var/log/syncbak/catcher-mtrs/"
 
@@ -40,7 +40,7 @@ func GetSyncboxList() []string {
 	return syncboxList
 }
 
-//Gets the FILE NAMES of ALL logs in the specified date and syncbox directory
+// Gets the FILE NAMES of ALL logs in the specified date and syncbox directory
 func getSyncboxLogFilenames(syncbox string, targetDate time.Time) []string {
 	validMonth := validateDateField(fmt.Sprint(int32(targetDate.Month())))
 	validDay := validateDateField(fmt.Sprint(targetDate.Day()))
@@ -57,7 +57,7 @@ func getSyncboxLogFilenames(syncbox string, targetDate time.Time) []string {
 	return strings.Split(dataReturned_1, "\n")
 }
 
-//Gets the LOG FILE DATA of ALL logs in the specified date and syncbox directory
+// Gets the LOG FILE DATA of ALL logs in the specified date and syncbox directory
 func getSyncboxMtrData(syncbox string, targetDate time.Time) string {
 	validMonth := validateDateField(fmt.Sprint(int32(targetDate.Month())))
 	validDay := validateDateField(fmt.Sprint(targetDate.Day()))
@@ -75,7 +75,7 @@ func getSyncboxMtrData(syncbox string, targetDate time.Time) string {
 	return dataReturned_2
 }
 
-//Compares a list of mtr filenames with a list of raw mtr data, and assigns matching filenames to the corresponding report's ID field
+// Compares a list of mtr filenames with a list of raw mtr data, and assigns matching filenames to the corresponding report's ID field
 func matchMtrDataWithFilenames(mtrLogFilenames []string, tempMtrReports []dataObjects.MtrReport) []dataObjects.MtrReport {
 	var validatedMtrReports []dataObjects.MtrReport
 	for _, l := range mtrLogFilenames {
@@ -115,7 +115,7 @@ func matchMtrDataWithFilenames(mtrLogFilenames []string, tempMtrReports []dataOb
 	return validatedMtrReports
 }
 
-//Parses raw MTR data into a slice of MtrReports
+// Parses raw MTR data into a slice of MtrReports
 func parseSshDataIntoMtrReport(rawData string) []dataObjects.MtrReport {
 
 	//Create the Report array to hold all the retrieved mtr Reports
@@ -222,7 +222,7 @@ func parseSshDataIntoMtrReport(rawData string) []dataObjects.MtrReport {
 	return mtrReports
 }
 
-//Helper method to provide valid date fields for mtr directories ("07" instead of "7")
+// Helper method to provide valid date fields for mtr directories ("07" instead of "7")
 func validateDateField(dateField string) string {
 	if len(dateField) == 1 {
 		dateField = "0" + dateField
@@ -230,7 +230,7 @@ func validateDateField(dateField string) string {
 	return dateField
 }
 
-//Helper method to parse strings into a float32
+// Helper method to parse strings into a float32
 func ParseStringToFloat32(s string) float32 {
 	var pl float64
 	var err error
@@ -247,7 +247,7 @@ func ParseStringToFloat32(s string) float32 {
 	return float32(pl)
 }
 
-//Helper method to parse strings into an int
+// Helper method to parse strings into an int
 func ParseStringToInt(s string) int {
 	var i int
 	var err error

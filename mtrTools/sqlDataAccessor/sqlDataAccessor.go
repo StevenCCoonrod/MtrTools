@@ -11,18 +11,18 @@ import (
 	_ "github.com/denisenkom/go-mssqldb"
 )
 
-//var server = "localhost"
+// var server = "localhost"
 var server = "localhost"
 var port = 1433
-var user = "stevec"
-var password = "MoM0H@$ha$hin"
+var user = ""
+var password = ""
 var database = "NetopsToolsDB"
 
 var db *sql.DB
 
 //================== INSERT STATEMENTS ===================\\
 
-//Inserts a Syncbox into the DB
+// Inserts a Syncbox into the DB
 func InsertSyncbox(syncbox string) {
 
 	db, ctx := getDBConnection()
@@ -34,7 +34,7 @@ func InsertSyncbox(syncbox string) {
 	dataReturned.Close()
 }
 
-//Inserts an SSH MtrReport into the DB
+// Inserts an SSH MtrReport into the DB
 func InsertMtrReport(mtrReport dataObjects.MtrReport) bool {
 
 	successfulInsert := false
@@ -79,7 +79,7 @@ func InsertMtrReport(mtrReport dataObjects.MtrReport) bool {
 
 //================== SELECT STATEMENTS ===================\\
 
-//Selects all Syncboxes in the DB
+// Selects all Syncboxes in the DB
 func SelectAllSyncboxes() []string {
 
 	var syncboxList []string
@@ -101,7 +101,7 @@ func SelectAllSyncboxes() []string {
 	return syncboxList
 }
 
-//Takes a batch of SSH MtrReports, Selects them from the DB, and parses them back into MtrReports
+// Takes a batch of SSH MtrReports, Selects them from the DB, and parses them back into MtrReports
 func SelectMtrReportsByID(reports []dataObjects.MtrReport) []dataObjects.MtrReport {
 
 	var dataReturned *sql.Rows
@@ -122,7 +122,7 @@ func SelectMtrReportsByID(reports []dataObjects.MtrReport) []dataObjects.MtrRepo
 	return reportsReturned
 }
 
-//Returns all DB Reports for a specified syncbox, between two datetimes, targeting a specified data center
+// Returns all DB Reports for a specified syncbox, between two datetimes, targeting a specified data center
 func SelectSyncboxMtrReportsByDCAndTimeframe(syncbox string, startTime time.Time, endTime time.Time, datacenter string) []dataObjects.MtrReport {
 
 	var err error
@@ -144,7 +144,7 @@ func SelectSyncboxMtrReportsByDCAndTimeframe(syncbox string, startTime time.Time
 
 //======================= HELPER METHODS =======================\\
 
-//Parses an individual report from the DB into an MtrReport
+// Parses an individual report from the DB into an MtrReport
 func parseSqlSingleReportDataIntoReport(sqlRowData *sql.Rows) dataObjects.MtrReport {
 
 	var reportID, syncboxID, dataCenter, hostName *string
@@ -180,7 +180,7 @@ func parseSqlSingleReportDataIntoReport(sqlRowData *sql.Rows) dataObjects.MtrRep
 	return report
 }
 
-//Parses multiple reports from the DB into MtrReports
+// Parses multiple reports from the DB into MtrReports
 func parseSqlMultipleReportDataIntoReports(sqlRowData *sql.Rows) []dataObjects.MtrReport {
 	var reports []dataObjects.MtrReport
 	var reportID, syncboxID, dataCenter, hostName *string
@@ -216,7 +216,7 @@ func parseSqlMultipleReportDataIntoReports(sqlRowData *sql.Rows) []dataObjects.M
 	return reports
 }
 
-//Establishes DB connection and context
+// Establishes DB connection and context
 func getDBConnection() (*sql.DB, context.Context) {
 	var err error
 	connString := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%d;database=%s;",
@@ -235,7 +235,7 @@ func getDBConnection() (*sql.DB, context.Context) {
 	return db, ctx
 }
 
-//Checks if a Report already exists in the DB
+// Checks if a Report already exists in the DB
 func CheckIfMtrReportExists(mtrReportID string) bool {
 	var err error
 	var mtrExists bool
