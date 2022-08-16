@@ -26,25 +26,35 @@ func main() {
 	if len(os.Args) > 1 {
 		// Specific Window of Time Functions
 		if isFlagPassed("start") && isFlagPassed("end") {
-			if isFlagPassed("a") {
-				// Specific Window of Time Functions on ALL boxes
-				fmt.Println("Initiating Full Timeframe Sweep at ", time.Now().UTC())
-				getMtrData_SpecificTimeframe(_SyncboxList, startTime, endTime, DCFilter)
+			if time.Now().Add(-startTime).Before(time.Now().Add(-time.Minute * 4)) {
+				if isFlagPassed("a") {
+					// Specific Window of Time Functions on ALL boxes
+					fmt.Println("Initiating Full Timeframe Sweep at ", time.Now().UTC())
+					getMtrData_SpecificTimeframe(_SyncboxList, startTime, endTime, DCFilter)
 
+				} else {
+					// Specific Window of Time Functions on Specific boxes
+					getMtrData_SpecificTimeframe(syncboxes, startTime, endTime, DCFilter)
+
+				}
 			} else {
-				// Specific Window of Time Functions on Specific boxes
-				getMtrData_SpecificTimeframe(syncboxes, startTime, endTime, DCFilter)
-
+				fmt.Println("Start time must be 5 minutes or more ago.")
 			}
+
 			//Specific Time Functions
 		} else if isFlagPassed("start") && !isFlagPassed("end") {
-			if isFlagPassed("a") {
-				//Specific Time functions on ALL boxes
-				getMtrData_SpecificTime(_SyncboxList, startTime, DCFilter)
+			if time.Now().Add(-startTime).Before(time.Now().Add(-time.Minute * 4)) {
+				if isFlagPassed("a") {
+					//Specific Time functions on ALL boxes
+					getMtrData_SpecificTime(_SyncboxList, startTime, DCFilter)
+				} else {
+					//Specific Time functions on Specific boxes
+					getMtrData_SpecificTime(syncboxes, startTime, DCFilter)
+				}
 			} else {
-				//Specific Time functions on Specific boxes
-				getMtrData_SpecificTime(syncboxes, startTime, DCFilter)
+				fmt.Println("Start time must be 5 minutes or more ago.")
 			}
+
 			//No Time Frame Functions
 		} else {
 			if isFlagPassed("a") {
@@ -62,7 +72,7 @@ func main() {
 	}
 }
 
-//Retrieves ALL MTR logs for ALL syncboxes in the SyncboxList
+// Retrieves ALL MTR logs for ALL syncboxes in the SyncboxList
 func runMtrRetrievalCycle(DCFilter string) {
 	fmt.Println("Initiating Full Sweep at ", time.Now().UTC())
 	fmt.Println("============ Beginning Full MTR Sweep ============")
@@ -77,17 +87,18 @@ func runMtrRetrievalCycle(DCFilter string) {
 	fmt.Println("============ MTR Sweep Completed ============")
 }
 
-//Check SSH, Insert new reports into DB, Select from DB.
-//Retrieves all log files for the specified boxes between the two times provided
+// Check SSH, Insert new reports into DB, Select from DB.
+// Retrieves all log files for the specified boxes between the two times provided
 func getMtrData_SpecificTimeframe(syncboxes []string, startTime time.Duration, endTime time.Duration, DCFilter string) []dataObjects.MtrReport {
 	var mtrReports []dataObjects.MtrReport
 	var batch []dataObjects.MtrReport
 
 	start := time.Now().UTC().Add(-startTime)
 	end := time.Now().UTC().Add(-endTime)
-	fmt.Println("StartTime: " + fmt.Sprint(start) + "\nEndTime: " + fmt.Sprint(end))
+	fmt.Println("StartTime:\t" + fmt.Sprint(start.Format(time.ANSIC)) +
+		"\nEndTime:\t" + fmt.Sprint(end.Format(time.ANSIC)))
 	if isFlagPassed("dc") {
-		fmt.Println("Data Center: " + strings.ToUpper(DCFilter))
+		fmt.Println("Data Center:\t" + strings.ToUpper(DCFilter))
 	}
 
 	//For each syncbox provided, Check SSH, Insert any new reports, and return all reports found in DB
@@ -100,87 +111,84 @@ func getMtrData_SpecificTimeframe(syncboxes []string, startTime time.Duration, e
 		//Select the matching reports from the DB
 		if isFlagPassed("dc") {
 			batch = sqlDataAccessor.SelectSyncboxMtrReportsByDCAndTimeframe(s, start, end, DCFilter)
+			fmt.Println("Reports found for "+s+" going to "+DCFilter+":", len(batch))
 
 		} else {
 			batch = sqlDataAccessor.SelectMtrReportsByID(batch)
+			fmt.Println("Reports found for "+s+":", len(batch))
 		}
-
-		fmt.Println("Reports found for", s, ":", len(batch))
 
 		if isFlagPassed("p") {
 			for _, r := range batch {
 				r.PrintReport()
 			}
 		}
-
 		mtrReports = append(mtrReports, batch...)
 	}
 
 	return mtrReports
 }
 
-//Check SSH, Insert new reports into DB, Select from DB.
-//Retrieves all log files for the specified boxes at the time provided
+// Check SSH, Insert new reports into DB, Select from DB.
+// Retrieves all log files for the specified boxes at the time provided
 func getMtrData_SpecificTime(syncboxes []string, targetTime time.Duration, DCFilter string) []dataObjects.MtrReport {
 	var mtrReports []dataObjects.MtrReport
 	var batch []dataObjects.MtrReport
+
 	start := time.Now().UTC().Add(-(targetTime + (time.Minute * 3)))
 	end := time.Now().UTC().Add(-(targetTime - (time.Minute * 3)))
-	//fmt.Println(start, " | ", end)
+
+	fmt.Println("Target Time:\t" +
+		fmt.Sprint(start.Add(time.Minute*3).Format(time.ANSIC)))
+	if isFlagPassed("dc") {
+		fmt.Println("Data Center:\t" + strings.ToUpper(DCFilter))
+	}
+
 	//For each syncbox provided, Check SSH, Insert any new reports, and return all reports found in DB
 	for _, s := range syncboxes {
 		//Check SSH
 		batch = sshDataAccess.GetMtrData_SpecificTimeframe(s, start, end)
-		//fmt.Println(len(batch))
 		//Insert any new reports into the DB
 		insertMtrReportsIntoDB(batch)
 
 		//Select the matching reports from the DB
 		if isFlagPassed("dc") {
 			batch = sqlDataAccessor.SelectSyncboxMtrReportsByDCAndTimeframe(s, start, end, DCFilter)
-
+			fmt.Println("Reports found for "+s+" going to "+strings.ToUpper(DCFilter)+":", len(batch))
 		} else {
 			batch = sqlDataAccessor.SelectMtrReportsByID(batch)
+			fmt.Println("Reports found for "+s+":", len(batch))
 		}
-		//fmt.Println(len(batch))
 		if isFlagPassed("p") {
 			for _, r := range batch {
 				r.PrintReport()
 			}
 		}
-		fmt.Println(len(batch), "report(s) collected for", s)
 		mtrReports = append(mtrReports, batch...)
 	}
 
 	return mtrReports
 }
 
-//Takes a slice of MTR Reports, checks if each is already in the DB, if not it inserts it
+// Takes a slice of MTR Reports, checks if each is already in the DB, if not it inserts it
 func insertMtrReportsIntoDB(mtrReports []dataObjects.MtrReport) {
 	if len(mtrReports) > 0 {
 		for _, r := range mtrReports {
 			//Check if the Report already exists in the DB
-			exists := sqlDataAccessor.CheckIfMtrReportExists(r.ReportID)
-			//fmt.Println("Inserting " + r.ReportID)
-			//If not, insert it
-			if !exists {
-				//fmt.Println("Inserting report: ", r.ReportID)
-				successfulInsert := sqlDataAccessor.InsertMtrReport(r)
-				// for _, h := range r.Hops {
-				// 	sqlDataAccessor.InsertMtrHop(r.ReportID, h)
 
-				// }
-				if !successfulInsert {
-					fmt.Println("There was an error inserting ", r.ReportID)
-				}
+			successfulInsert := sqlDataAccessor.InsertMtrReport(r)
+
+			if !successfulInsert {
+				fmt.Println("Error inserting ", r.ReportID)
 			}
+
 		}
 	}
 }
 
-//Automatically compares the DB and SSH Server list of Syncboxes
-//and adds any that aren't in the DB to the DB.
-//Updates the SyncboxList
+// Automatically compares the DB and SSH Server list of Syncboxes
+// and adds any that aren't in the DB to the DB.
+// Updates the SyncboxList
 func updateSyncboxList() {
 	var sshSyncboxList []string
 	//Get the list of Syncboxes currently in the DB

@@ -287,6 +287,6 @@ BEGIN
 	AND		[MtrReport].[StartTime] >= @StartDatetime
 	AND		[MtrReport].[StartTime] <= @EndDatetime
 	AND 	[MtrReport].[DataCenter] = @DataCenter
-	ORDER BY [MtrReportID]
+	ORDER BY [MtrReportID],[MtrHopID]
 END
 GO

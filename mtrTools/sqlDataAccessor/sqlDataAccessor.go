@@ -12,7 +12,7 @@ import (
 )
 
 // var server = "localhost"
-var server = "localhost"
+var server = "localhost\\MSSQLSERVER02"
 var port = 1433
 var user = ""
 var password = ""
@@ -32,46 +32,52 @@ func InsertSyncbox(syncbox string) {
 		fmt.Println(err)
 	}
 	dataReturned.Close()
+	db.Close()
 }
 
 // Inserts an SSH MtrReport into the DB
 func InsertMtrReport(mtrReport dataObjects.MtrReport) bool {
 
 	successfulInsert := false
-	db, ctx := getDBConnection()
 
-	//Insert the Report
-	dataReturned, err := db.QueryContext(ctx, "sp_InsertMtrReport", mtrReport.ReportID, mtrReport.SyncboxID, mtrReport.StartTime, mtrReport.DataCenter)
-	if err != nil {
-		dataReturned.Close()
-		db.Close()
-		fmt.Println("Error inserting report. ", err.Error())
-		successfulInsert = false
+	reportExists, db, ctx := CheckIfMtrReportExists(mtrReport.ReportID)
+	defer db.Close()
+	if !reportExists {
+		//Insert the Report
+		dataReturned, err := db.QueryContext(ctx, "sp_InsertMtrReport", mtrReport.ReportID, mtrReport.SyncboxID, mtrReport.StartTime, mtrReport.DataCenter)
+		defer dataReturned.Close()
+
+		if err != nil {
+			//dataReturned.Close()
+			//db.Close()
+			fmt.Println("Error inserting report. ", err.Error())
+			successfulInsert = false
+		} else {
+			successfulInsert = true
+		}
+		//Insert the report's hops
+		if successfulInsert {
+			//db, ctx = getDBConnection()
+			for _, h := range mtrReport.Hops {
+
+				dataReturned, err := db.QueryContext(ctx, "sp_InsertMtrHop", mtrReport.ReportID, h.HopNumber, h.Hostname,
+					h.PacketLoss, h.PacketsSent, h.LastPing, h.AveragePing, h.BestPing, h.WorstPing, h.StdDev)
+
+				if err != nil {
+					dataReturned.Close()
+					db.Close()
+					fmt.Println("Error inserting hop. \n", err.Error())
+					successfulInsert = false
+					break
+				} else {
+					dataReturned.Close()
+					successfulInsert = true
+				}
+			}
+			db.Close()
+		}
 	} else {
 		successfulInsert = true
-	}
-	defer dataReturned.Close()
-	defer db.Close()
-	//Insert the report's hops
-	if successfulInsert {
-		for _, h := range mtrReport.Hops {
-			db, ctx = getDBConnection()
-			dataReturned, err := db.QueryContext(ctx, "sp_InsertMtrHop", mtrReport.ReportID, h.HopNumber, h.Hostname,
-				h.PacketLoss, h.PacketsSent, h.LastPing, h.AveragePing, h.BestPing,
-				h.WorstPing, h.StdDev)
-			if err != nil {
-				dataReturned.Close()
-				db.Close()
-				fmt.Println("Error inserting hop. \n", err.Error())
-				successfulInsert = false
-				break
-			} else {
-				successfulInsert = true
-			}
-			defer dataReturned.Close()
-			defer db.Close()
-		}
-
 	}
 
 	return successfulInsert
@@ -88,16 +94,18 @@ func SelectAllSyncboxes() []string {
 	dataReturned, err := db.QueryContext(ctx, "sp_SelectAllSyncboxes")
 	if err != nil {
 		fmt.Println(err)
-	}
-	for dataReturned.Next() {
-		var syncbox string
-		err := dataReturned.Scan(&syncbox)
-		if err != nil {
-			panic(err)
+	} else {
+		for dataReturned.Next() {
+			var syncbox string
+			err := dataReturned.Scan(&syncbox)
+			if err != nil {
+				panic(err)
+			}
+			syncboxList = append(syncboxList, syncbox)
 		}
-		syncboxList = append(syncboxList, syncbox)
+		dataReturned.Close()
 	}
-	dataReturned.Close()
+	db.Close()
 	return syncboxList
 }
 
@@ -107,18 +115,20 @@ func SelectMtrReportsByID(reports []dataObjects.MtrReport) []dataObjects.MtrRepo
 	var dataReturned *sql.Rows
 	var err error
 	var reportsReturned []dataObjects.MtrReport
+	db, ctx := getDBConnection()
 	for _, r := range reports {
-		db, ctx := getDBConnection()
+
 		dataReturned, err = db.QueryContext(ctx, "sp_SelectMtrReportByID", r.ReportID)
 		if err != nil {
 			fmt.Println("Error selecting mtr report. ", err.Error())
+		} else {
+			parsedReport := parseSqlSingleReportDataIntoReport(dataReturned)
+			dataReturned.Close()
+			reportsReturned = append(reportsReturned, parsedReport)
 		}
 
-		parsedReport := parseSqlSingleReportDataIntoReport(dataReturned)
-		dataReturned.Close()
-		reportsReturned = append(reportsReturned, parsedReport)
-		db.Close()
 	}
+	db.Close()
 	return reportsReturned
 }
 
@@ -236,31 +246,30 @@ func getDBConnection() (*sql.DB, context.Context) {
 }
 
 // Checks if a Report already exists in the DB
-func CheckIfMtrReportExists(mtrReportID string) bool {
+func CheckIfMtrReportExists(mtrReportID string) (bool, *sql.DB, context.Context) {
 	var err error
-	var mtrExists bool
+	mtrExists := false
 	db, ctx := getDBConnection()
 
 	dataReturned, err := db.QueryContext(ctx, "sp_CheckIfMtrReportExists", mtrReportID)
 	if err != nil {
-		fmt.Println("Error checking for mtr report. ", err.Error())
-	}
-
-	db.Close()
-
-	var reportID *string
-	for dataReturned.Next() {
-		if err := dataReturned.Scan(&reportID); err != nil {
-			dataReturned.Close()
-			panic(err.Error())
+		dataReturned.Close()
+		fmt.Println("Error checking for Report: ", mtrReportID, "\n", err.Error())
+	} else {
+		var reportID *string
+		for dataReturned.Next() {
+			if err := dataReturned.Scan(&reportID); err != nil {
+				dataReturned.Close()
+				panic(err.Error())
+			}
+		}
+		dataReturned.Close()
+		if reportID == nil {
+			mtrExists = false
+		} else {
+			mtrExists = true
 		}
 	}
-	dataReturned.Close()
-	if reportID == nil {
-		mtrExists = false
-	} else {
-		mtrExists = true
-	}
-
-	return mtrExists
+	//db.Close()
+	return mtrExists, db, ctx
 }
