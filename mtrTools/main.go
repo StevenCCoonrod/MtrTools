@@ -34,6 +34,7 @@ func main() {
 
 				} else {
 					// Specific Window of Time Functions on Specific boxes
+
 					getMtrData_SpecificTimeframe(syncboxes, startTime, endTime, DCFilter)
 
 				}
@@ -93,6 +94,7 @@ func getMtrData_SpecificTimeframe(syncboxes []string, startTime time.Duration, e
 	var mtrReports []dataObjects.MtrReport
 	var batch []dataObjects.MtrReport
 
+	// startTest := time.Now()
 	start := time.Now().UTC().Add(-startTime)
 	end := time.Now().UTC().Add(-endTime)
 	fmt.Println("StartTime:\t" + fmt.Sprint(start.Format(time.ANSIC)) +
@@ -104,6 +106,7 @@ func getMtrData_SpecificTimeframe(syncboxes []string, startTime time.Duration, e
 	//For each syncbox provided, Check SSH, Insert any new reports, and return all reports found in DB
 	for _, s := range syncboxes {
 		//Check SSH
+
 		batch = sshDataAccess.GetMtrData_SpecificTimeframe(s, start, end)
 		//Insert any new reports into the DB
 		insertMtrReportsIntoDB(batch)
@@ -111,7 +114,7 @@ func getMtrData_SpecificTimeframe(syncboxes []string, startTime time.Duration, e
 		//Select the matching reports from the DB
 		if isFlagPassed("dc") {
 			batch = sqlDataAccessor.SelectSyncboxMtrReportsByDCAndTimeframe(s, start, end, DCFilter)
-			fmt.Println("Reports found for "+s+" going to "+DCFilter+":", len(batch))
+			fmt.Println("Reports found for "+s+" going to "+strings.ToUpper(DCFilter)+":", len(batch))
 
 		} else {
 			batch = sqlDataAccessor.SelectMtrReportsByID(batch)
@@ -120,11 +123,18 @@ func getMtrData_SpecificTimeframe(syncboxes []string, startTime time.Duration, e
 
 		if isFlagPassed("p") {
 			for _, r := range batch {
-				r.PrintReport()
+				fmt.Println(r.PrintReport())
 			}
+		}
+		if isFlagPassed("pf") {
+			printReportsToTextFile(batch)
 		}
 		mtrReports = append(mtrReports, batch...)
 	}
+
+	// endTest := time.Now()
+	// dur := endTest.Sub(startTest)
+	// fmt.Println(dur)
 
 	return mtrReports
 }
@@ -161,8 +171,11 @@ func getMtrData_SpecificTime(syncboxes []string, targetTime time.Duration, DCFil
 		}
 		if isFlagPassed("p") {
 			for _, r := range batch {
-				r.PrintReport()
+				fmt.Println(r.PrintReport())
 			}
+		}
+		if isFlagPassed("pf") {
+			printReportsToTextFile(batch)
 		}
 		mtrReports = append(mtrReports, batch...)
 	}
@@ -222,6 +235,35 @@ func isFlagPassed(name string) bool {
 	return found
 }
 
+func printReportsToTextFile(reports []dataObjects.MtrReport) {
+	directory, errD := os.Getwd()
+	newFilename := fmt.Sprint(directory + "\\MtrResults\\" + time.Now().Format("2006-01-02_03-04-PM") + "_mtrReport.txt")
+	if errD != nil {
+
+	}
+	file, err := os.Create(newFilename)
+	if err != nil {
+		fmt.Println("There was an error creating the text file.\n", err.Error())
+	} else {
+		defer file.Close()
+		fmt.Println(newFilename)
+		for _, r := range reports {
+			var err2 error
+			f, err2 := os.OpenFile(newFilename, os.O_APPEND|os.O_WRONLY, 0644)
+			if err2 != nil {
+				file.Close()
+				fmt.Println(err2.Error())
+			}
+
+			_, err3 := fmt.Fprintln(f, r.PrintReport())
+			if err3 != nil {
+				fmt.Println("There was an error printing reports to the file.\n", err3.Error())
+			}
+		}
+	}
+
+}
+
 func setFlags() (time.Duration, time.Duration, string) {
 	var all bool
 	flag.BoolVar(&all, "a", false, "Target ALL syncboxes")
@@ -234,6 +276,8 @@ func setFlags() (time.Duration, time.Duration, string) {
 	flag.BoolVar(&printResult, "p", false, "Print search results to command-line")
 	var filterByDataCenter string
 	flag.StringVar(&filterByDataCenter, "dc", "", "Filter search results by data center")
+	var printToFile bool
+	flag.BoolVar(&printToFile, "pf", false, "Print results to a text file")
 
 	flag.Parse()
 	return startTime, endTime, filterByDataCenter

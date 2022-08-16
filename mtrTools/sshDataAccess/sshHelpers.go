@@ -52,7 +52,11 @@ func getSyncboxLogFilenames(syncbox string, targetDate time.Time) []string {
 		syncbox + "/"
 	dataReturned_1, err := runClientCommand(command1)
 	if err != nil {
-		fmt.Println(err)
+		if err.Error() == "Process exited with status 1" {
+			fmt.Println("No log files found in the " + syncbox + " directory.")
+		} else {
+			fmt.Println("Error running command on SSH Server.\n" + err.Error())
+		}
 	}
 	return strings.Split(dataReturned_1, "\n")
 }
@@ -70,7 +74,11 @@ func getSyncboxMtrData(syncbox string, targetDate time.Time) string {
 
 	dataReturned_2, err := runClientCommand(command2)
 	if err != nil {
-
+		if err.Error() == "Process exited with status 1" {
+			fmt.Println("No log files found in the " + syncbox + " directory.")
+		} else {
+			fmt.Println("Error running command on SSH Server.\n" + err.Error())
+		}
 	}
 	return dataReturned_2
 }

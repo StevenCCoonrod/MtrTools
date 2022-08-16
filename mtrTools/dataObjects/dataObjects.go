@@ -29,11 +29,16 @@ type MtrReport struct {
 }
 
 //Prints out an Mtr Report with properly aligned fields
-func (rpt MtrReport) PrintReport() {
-	fmt.Println(rpt.ReportID)
-	fmt.Println(rpt.SyncboxID)
-	fmt.Println(rpt.StartTime)
-	fmt.Println("Data Center: " + strings.ToUpper(rpt.DataCenter))
+func (rpt MtrReport) PrintReport() string {
+	reportString := ""
+	reportString += rpt.ReportID + "\n" +
+		rpt.SyncboxID + "\n" +
+		fmt.Sprint(rpt.StartTime.Format(time.ANSIC)) + "\n" +
+		"Data Center: " + strings.ToUpper(rpt.DataCenter) + "\n"
+	// fmt.Println(rpt.ReportID)
+	// fmt.Println(rpt.SyncboxID)
+	// fmt.Println(rpt.StartTime)
+	// fmt.Println("Data Center: " + strings.ToUpper(rpt.DataCenter))
 	longestHostname := ""
 	for _, h := range rpt.Hops {
 		if len(h.Hostname) > len(longestHostname) {
@@ -48,9 +53,10 @@ func (rpt MtrReport) PrintReport() {
 			i = i + 4
 		}
 	}
-	fmt.Println(
-		"Hop|" + hostHeader + "\t|Loss%\t|Sent\t|Last\t|Avg\t|Best\t|Worst\t|Std",
-	)
+	reportString += "Hop|" + hostHeader + "\t|Loss%\t|Sent\t|Last\t|Avg\t|Best\t|Worst\t|Std\n"
+	// fmt.Println(
+	// 	"Hop|" + hostHeader + "\t|Loss%\t|Sent\t|Last\t|Avg\t|Best\t|Worst\t|Std",
+	// )
 	for _, h := range rpt.Hops {
 		hopnum := fmt.Sprint(h.HopNumber)
 		if h.HopNumber < 10 {
@@ -67,18 +73,29 @@ func (rpt MtrReport) PrintReport() {
 		if len(packetLoss) < 5 {
 			packetLoss = packetLoss + "\t"
 		}
-		fmt.Println(
-			hopnum + "|" +
-				hostname + "\t|" +
-				packetLoss + "|" +
-				fmt.Sprint(h.PacketsSent) + "\t|" +
-				fmt.Sprint(h.LastPing) + "\t|" +
-				fmt.Sprint(h.AveragePing) + "\t|" +
-				fmt.Sprint(h.BestPing) + "\t|" +
-				fmt.Sprint(h.WorstPing) + "\t|" +
-				fmt.Sprint(h.StdDev),
-		)
+		reportString += hopnum + "|" +
+			hostname + "\t|" +
+			packetLoss + "|" +
+			fmt.Sprint(h.PacketsSent) + "\t|" +
+			fmt.Sprint(h.LastPing) + "\t|" +
+			fmt.Sprint(h.AveragePing) + "\t|" +
+			fmt.Sprint(h.BestPing) + "\t|" +
+			fmt.Sprint(h.WorstPing) + "\t|" +
+			fmt.Sprint(h.StdDev) + "\n"
+
+		// fmt.Println(
+		// 	hopnum + "|" +
+		// 		hostname + "\t|" +
+		// 		packetLoss + "|" +
+		// 		fmt.Sprint(h.PacketsSent) + "\t|" +
+		// 		fmt.Sprint(h.LastPing) + "\t|" +
+		// 		fmt.Sprint(h.AveragePing) + "\t|" +
+		// 		fmt.Sprint(h.BestPing) + "\t|" +
+		// 		fmt.Sprint(h.WorstPing) + "\t|" +
+		// 		fmt.Sprint(h.StdDev),
+		// )
 	}
 
-	fmt.Println()
+	// fmt.Println()
+	return reportString
 }

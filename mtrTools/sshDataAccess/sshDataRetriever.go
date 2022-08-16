@@ -96,8 +96,9 @@ func runClientCommand(command string) (string, error) {
 
 	var buff bytes.Buffer
 	session.Stdout = &buff
-	if err := session.Run(command); err != nil {
-		fmt.Println("Error running command on SSH Server.\n" + err.Error())
+	var err2 error
+	if err2 = session.Run(command); err2 != nil {
+
 	}
-	return buff.String(), err
+	return buff.String(), err2
 }

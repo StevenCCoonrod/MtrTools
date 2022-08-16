@@ -12,7 +12,7 @@ import (
 )
 
 // var server = "localhost"
-var server = "localhost\\MSSQLSERVER02"
+var server = "localhost"
 var port = 1433
 var user = ""
 var password = ""
