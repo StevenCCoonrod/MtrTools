@@ -6,9 +6,10 @@ Houses tools for analyzing traceroute data.
 
 ## Flags:<br />
 **-a**        &emsp;&emsp;&emsp;&emsp;&emsp;&nbsp;Will run a sweep of ALL mtr data for ALL Syncboxes. <br />
-**-start**    &emsp;&emsp;&emsp;&nbsp;&nbsp;&nbsp;Specify a target start time. eg. 5h30m = 5hours and 30 minutes in the past <br />
-**-end**      &emsp;&emsp;&emsp;&emsp;&nbsp;Specify a target end time. eg. 0m = now, 0 minutes in the past<br />
-**-p**        &emsp;&emsp;&emsp;&emsp;&emsp;&nbsp;Print results to command-line <br />
+**-start**    &emsp;&emsp;&emsp;&nbsp;&nbsp;&nbsp;Specify a target start time. eg. 5h30m = 5hours and 30 minutes in the past. <br />
+**-end**      &emsp;&emsp;&emsp;&emsp;&nbsp;Specify a target end time. eg. 0m = now, 0 minutes in the past.<br />
+**-p**        &emsp;&emsp;&emsp;&emsp;&emsp;&nbsp;Print results to command-line. <br />
+**-pf**        &emsp;&emsp;&emsp;&emsp;&emsp;Print results to a text file.<br />
 **syncboxID** &emsp;&ensp;&nbsp;Will run a sweep of All mtr for the specified Syncbox. <br />
 **no args**   &emsp;&emsp;&emsp;Will run a test method.
   
