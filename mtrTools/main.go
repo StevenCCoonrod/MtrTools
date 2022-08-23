@@ -17,11 +17,7 @@ var _SyncboxList []string
 
 func main() {
 
-	//Update the SyncboxList []string
-	updateSyncboxList()
-
-	startTime, endTime, dcFilter, hostname := setFlags()
-	syncboxes := flag.Args()
+	syncboxes, startTime, endTime, dcFilter, hostname := initialize()
 
 	if len(os.Args) > 1 {
 
@@ -36,13 +32,23 @@ func main() {
 				fullMtrRetrievalCycle(dcFilter)
 			} else {
 				//No Time Frame Functions on Specific boxes
-				getHostnameReport(hostname)
+				if isFlagPassed("host") {
+					getHostnameReport(hostname)
+				}
+				if len(syncboxes) > 0 {
+					reports := getMtrData_Timeframe(
+						syncboxes,
+						time.Since(time.Now().AddDate(0, 0, -1)),
+						time.Since(time.Now()),
+						dcFilter)
+					fmt.Println("Reports found:", len(reports))
+				}
 			}
 		}
 	} else {
 		//No args given
 		//Use this to target a problem box or method
-
+		programDisplay()
 	}
 }
 
@@ -219,6 +225,40 @@ func getMtrData_TargetTime(syncboxes []string, targetTime time.Duration, DCFilte
 //|||||||||||||||||||||||||||||||||||||=====================||||||||||||||||||||||||||||||||||||||||||
 //vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv Secondary Functions vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\\
 
+//Sets up Syncbox list, establishes flag values and Syncbox args
+func initialize() ([]string, time.Duration, time.Duration, string, string) {
+	//Update the SyncboxList []string
+	updateSyncboxList()
+
+	startTime, endTime, dcFilter, hostname := setFlags()
+	syncboxArgs := flag.Args()
+	var syncboxes []string
+	for _, s := range syncboxArgs {
+		syncboxes = append(syncboxes, strings.ToLower(s))
+	}
+	return syncboxes, startTime, endTime, dcFilter, hostname
+}
+
+func programDisplay() {
+	fmt.Print("\n===============================================")
+	fmt.Print(" Mtr Tools ")
+	fmt.Println("===============================================")
+	fmt.Println("Flags:")
+	fmt.Println("\t-a\tRuns a sweep of ALL Syncboxes")
+	fmt.Println("\t-start\tSpecifies a target search start time. Eg. 5h30m = 5 hours and 30 minutes ago")
+	fmt.Println("\t-end\tSpecifies a target search end time. Eg. 0m = now, 0 minutes ago")
+	fmt.Println("\t-p\tPrints results to the command line")
+	fmt.Println("\t-pf\tPrint the results to a text file")
+	fmt.Println("Syncboxes:", len(_SyncboxList))
+	for i, s := range _SyncboxList {
+		if i%7 == 0 {
+			fmt.Print("\n" + s)
+		} else {
+			fmt.Print("\t" + s)
+		}
+	}
+}
+
 // Takes a slice of MTR Reports, checks if each is already in the DB, if not it inserts it
 func insertMtrReportsIntoDB(mtrReports []dataObjects.MtrReport) {
 	if len(mtrReports) > 0 {
@@ -256,7 +296,7 @@ func updateSyncboxList() {
 	//Set the SyncboxList equal to the DB list
 	_SyncboxList = dbSyncboxList
 	//Print count of SyncboxList
-	fmt.Println("Total Syncboxes: " + fmt.Sprint(len(_SyncboxList)) + "\n")
+	//fmt.Println("Total Syncboxes: " + fmt.Sprint(len(_SyncboxList)) + "\n")
 }
 
 // Helper function to validate a timeframe
