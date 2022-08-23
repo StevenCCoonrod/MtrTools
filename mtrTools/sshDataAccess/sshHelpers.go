@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-var sshUser string = ""
-var sshPassword string = ""
+var sshUser string = "stevec"
+var sshPassword string = "3brahman3"
 var sshTargetHost string = "master3.syncbak.com:22"
 var baseDirectory string = "/var/log/syncbak/catcher-mtrs/"
 

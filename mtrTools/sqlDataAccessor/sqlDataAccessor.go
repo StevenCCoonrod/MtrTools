@@ -12,10 +12,10 @@ import (
 )
 
 // var server = "localhost"
-var server = "localhost"
+var server = "localhost\\MSSQLSERVER02"
 var port = 1433
-var user = ""
-var password = ""
+var user = "stevec"
+var password = "3brahman3"
 var database = "NetopsToolsDB"
 
 var db *sql.DB
@@ -109,7 +109,7 @@ func SelectAllSyncboxes() []string {
 	return syncboxList
 }
 
-// Takes a batch of SSH MtrReports, Selects them from the DB, and parses them back into MtrReports
+// Takes a batch of MtrReports, Selects them from the DB, and parses them back into MtrReports
 func SelectMtrReportsByID(reports []dataObjects.MtrReport) []dataObjects.MtrReport {
 
 	var dataReturned *sql.Rows
@@ -132,17 +132,57 @@ func SelectMtrReportsByID(reports []dataObjects.MtrReport) []dataObjects.MtrRepo
 	return reportsReturned
 }
 
-// Returns all DB Reports for a specified syncbox, between two datetimes, targeting a specified data center
-func SelectSyncboxMtrReportsByDCAndTimeframe(syncbox string, startTime time.Time, endTime time.Time, datacenter string) []dataObjects.MtrReport {
+// Returns all DB Reports for a specified syncbox, between two datetimes
+func SelectMtrReports_BySyncbox_Timeframe(syncbox string, startTime time.Time, endTime time.Time) []dataObjects.MtrReport {
 
 	var err error
 	db, ctx := getDBConnection()
 	var dataReturned *sql.Rows
 	var reportsReturned []dataObjects.MtrReport
 	defer db.Close()
-	dataReturned, err = db.QueryContext(ctx, "sp_SelectSyncboxMtrsByDCAndTimeframe", syncbox, startTime, endTime, strings.ToLower(datacenter))
+	dataReturned, err = db.QueryContext(ctx, "sp_SelectMtrs_BySyncbox_WithinRange", syncbox, startTime, endTime)
 	if err != nil {
 		fmt.Println("Error selecting mtr report. ", err.Error())
+	}
+
+	reportsReturned = append(reportsReturned, parseSqlMultipleReportDataIntoReports(dataReturned)...)
+
+	dataReturned.Close()
+
+	return reportsReturned
+}
+
+// Returns all DB Reports for a specified syncbox, between two datetimes, targeting a specified data center
+func SelectMtrReports_BySyncbox_DCAndTimeframe(syncbox string, startTime time.Time, endTime time.Time, datacenter string) []dataObjects.MtrReport {
+
+	var err error
+	db, ctx := getDBConnection()
+	var dataReturned *sql.Rows
+	var reportsReturned []dataObjects.MtrReport
+	defer db.Close()
+	dataReturned, err = db.QueryContext(ctx, "sp_SelectMtrs_BySyncbox_DCAndTimeframe", syncbox, startTime, endTime, strings.ToLower(datacenter))
+	if err != nil {
+		fmt.Println("Error selecting mtr report. ", err.Error())
+	}
+
+	reportsReturned = append(reportsReturned, parseSqlMultipleReportDataIntoReports(dataReturned)...)
+
+	dataReturned.Close()
+
+	return reportsReturned
+}
+
+// Returns all DB Reports for a specified syncbox, between two datetimes
+func SelectMtrReports_ByHostname(hostname string) []dataObjects.MtrReport {
+
+	var err error
+	db, ctx := getDBConnection()
+	var dataReturned *sql.Rows
+	var reportsReturned []dataObjects.MtrReport
+	defer db.Close()
+	dataReturned, err = db.QueryContext(ctx, "sp_SelectMtrs_ByHostname", hostname)
+	if err != nil {
+		fmt.Println("Error selecting reports by host name. ", err.Error())
 	}
 
 	reportsReturned = append(reportsReturned, parseSqlMultipleReportDataIntoReports(dataReturned)...)
