@@ -31,7 +31,7 @@ func main() {
 				//No Time Frame Functions on ALL boxes
 				fullMtrRetrievalCycle(dcFilter)
 			} else {
-				//No Time Frame Functions on Specific boxes
+				//No Time Frame Functions
 				if isFlagPassed("host") {
 					getHostnameReport(hostname)
 				}
@@ -52,11 +52,13 @@ func main() {
 	}
 }
 
+// Retrieves data based on host name
 func getHostnameReport(hostname string) {
 	dataReturned := sqlDataAccessor.SelectMtrReports_ByHostname(hostname)
 	var distinctBoxes []string
 	var distinctDC []string
 	var loss float32
+	// Get distinct Syncboxes and target Data Centers, calculate average packet loss
 	for _, r := range dataReturned {
 		if !slices.Contains(distinctBoxes, r.SyncboxID) {
 			distinctBoxes = append(distinctBoxes, r.SyncboxID)
@@ -95,13 +97,13 @@ func timeframeFunctions(startTime time.Duration, endTime time.Duration, DCFilter
 			mtrReports = getMtrData_Timeframe(syncboxes, startTime, endTime, DCFilter)
 		}
 
-		if isFlagPassed("p") {
+		if isFlagPassed("p") { // Print to Console
 			for _, r := range mtrReports {
 				fmt.Println(r.PrintReport())
 			}
 		}
 
-		if isFlagPassed("pf") {
+		if isFlagPassed("pf") { // Print to File
 			printReportsToTextFile(mtrReports)
 		}
 	}
@@ -119,13 +121,13 @@ func targetTimeFunctions(startTime time.Duration, DCFilter string, syncboxes []s
 			mtrReports = getMtrData_TargetTime(syncboxes, startTime, DCFilter)
 		}
 
-		if isFlagPassed("p") {
+		if isFlagPassed("p") { // Print to Console
 			for _, r := range mtrReports {
 				fmt.Println(r.PrintReport())
 			}
 		}
 
-		if isFlagPassed("pf") {
+		if isFlagPassed("pf") { // Print to File
 			printReportsToTextFile(mtrReports)
 		}
 	} else {
@@ -225,7 +227,7 @@ func getMtrData_TargetTime(syncboxes []string, targetTime time.Duration, DCFilte
 //|||||||||||||||||||||||||||||||||||||=====================||||||||||||||||||||||||||||||||||||||||||
 //vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv Secondary Functions vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\\
 
-//Sets up Syncbox list, establishes flag values and Syncbox args
+// Retrieves Syncbox list, establishes flag values and Syncbox args
 func initialize() ([]string, time.Duration, time.Duration, string, string) {
 	//Update the SyncboxList []string
 	updateSyncboxList()
@@ -239,6 +241,7 @@ func initialize() ([]string, time.Duration, time.Duration, string, string) {
 	return syncboxes, startTime, endTime, dcFilter, hostname
 }
 
+// Displays program details to console
 func programDisplay() {
 	fmt.Print("\n===============================================")
 	fmt.Print(" Mtr Tools ")

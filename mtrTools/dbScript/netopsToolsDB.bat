@@ -6,7 +6,7 @@ rem echo .
 rem echo if no error messages appear DB was created 
 rem pause
 
-Generic Local Host
+rem Generic Local Host
 sqlcmd -S localhost\ -E -i NetopsToolsDB.sql
 echo .
 echo if no error messages appear, database was created successfully
