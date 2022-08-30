@@ -26,7 +26,16 @@ var db *sql.DB
 // Inserts a Syncbox into the DB
 func InsertSyncbox(syncbox string) {
 
-	db, ctx := getDBConnection()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var err error
+	db := getDBConnection()
+
+	err1 := db.PingContext(ctx)
+	if err1 != nil {
+		fmt.Println(err.Error())
+	}
 
 	dataReturned, err := db.QueryContext(ctx, "sp_InsertSyncbox", syncbox)
 	if err != nil {
@@ -37,48 +46,43 @@ func InsertSyncbox(syncbox string) {
 }
 
 // Inserts an SSH MtrReport into the DB
-func InsertMtrReport(mtrReport dataObjects.MtrReport) bool {
+func InsertMtrReports(mtrReports []dataObjects.MtrReport) bool {
 
 	successfulInsert := false
+	db := getDBConnection()
+	for _, report := range mtrReports {
+		reportExists, ctx, cancel := CheckIfMtrReportExists(db, report.ReportID)
+		defer cancel()
+		defer db.Close()
+		if !reportExists {
+			//Insert the Report
+			_, err := db.ExecContext(ctx, "sp_InsertMtrReport", report.ReportID, report.SyncboxID, report.StartTime, report.DataCenter)
 
-	reportExists, db, ctx := CheckIfMtrReportExists(mtrReport.ReportID)
-	defer db.Close()
-	if !reportExists {
-		//Insert the Report
-		dataReturned, err := db.QueryContext(ctx, "sp_InsertMtrReport", mtrReport.ReportID, mtrReport.SyncboxID, mtrReport.StartTime, mtrReport.DataCenter)
-		defer dataReturned.Close()
+			if err != nil {
+				fmt.Println("Error inserting report. ", err.Error())
+				successfulInsert = false
+			} else {
+				successfulInsert = true
+			}
+			//Insert the report's hops
+			if successfulInsert {
+				for _, h := range report.Hops {
 
-		if err != nil {
-			//dataReturned.Close()
-			//db.Close()
-			fmt.Println("Error inserting report. ", err.Error())
-			successfulInsert = false
+					_, err := db.ExecContext(ctx, "sp_InsertMtrHop", report.ReportID, h.HopNumber, h.Hostname,
+						h.PacketLoss, h.PacketsSent, h.LastPing, h.AveragePing, h.BestPing, h.WorstPing, h.StdDev)
+
+					if err != nil {
+						fmt.Println("Error inserting hop", h.HopNumber, "for", report.ReportID, "\n", err.Error())
+						successfulInsert = false
+						break
+					} else {
+						successfulInsert = true
+					}
+				}
+			}
 		} else {
 			successfulInsert = true
 		}
-		//Insert the report's hops
-		if successfulInsert {
-			//db, ctx = getDBConnection()
-			for _, h := range mtrReport.Hops {
-
-				dataReturned, err := db.QueryContext(ctx, "sp_InsertMtrHop", mtrReport.ReportID, h.HopNumber, h.Hostname,
-					h.PacketLoss, h.PacketsSent, h.LastPing, h.AveragePing, h.BestPing, h.WorstPing, h.StdDev)
-
-				if err != nil {
-					dataReturned.Close()
-					db.Close()
-					fmt.Println("Error inserting hop. \n", err.Error())
-					successfulInsert = false
-					break
-				} else {
-					dataReturned.Close()
-					successfulInsert = true
-				}
-			}
-			db.Close()
-		}
-	} else {
-		successfulInsert = true
 	}
 
 	return successfulInsert
@@ -90,7 +94,14 @@ func InsertMtrReport(mtrReport dataObjects.MtrReport) bool {
 func SelectAllSyncboxes() []string {
 
 	var syncboxList []string
-	db, ctx := getDBConnection()
+	var err error
+	db := getDBConnection()
+	ctx := context.Background()
+
+	err1 := db.PingContext(ctx)
+	if err1 != nil {
+		fmt.Println(err.Error())
+	}
 
 	dataReturned, err := db.QueryContext(ctx, "sp_SelectAllSyncboxes")
 	if err != nil {
@@ -100,7 +111,7 @@ func SelectAllSyncboxes() []string {
 			var syncbox string
 			err := dataReturned.Scan(&syncbox)
 			if err != nil {
-				panic(err)
+				fmt.Println(err)
 			}
 			syncboxList = append(syncboxList, syncbox)
 		}
@@ -114,9 +125,15 @@ func SelectAllSyncboxes() []string {
 func SelectMtrReportsByID(reports []dataObjects.MtrReport) []dataObjects.MtrReport {
 
 	var dataReturned *sql.Rows
-	var err error
 	var reportsReturned []dataObjects.MtrReport
-	db, ctx := getDBConnection()
+	var err error
+	db := getDBConnection()
+	ctx := context.Background()
+
+	err1 := db.PingContext(ctx)
+	if err1 != nil {
+		fmt.Println(err.Error())
+	}
 	for _, r := range reports {
 
 		dataReturned, err = db.QueryContext(ctx, "sp_SelectMtrReportByID", r.ReportID)
@@ -137,7 +154,15 @@ func SelectMtrReportsByID(reports []dataObjects.MtrReport) []dataObjects.MtrRepo
 func SelectMtrReports_BySyncbox_Timeframe(syncbox string, startTime time.Time, endTime time.Time) []dataObjects.MtrReport {
 
 	var err error
-	db, ctx := getDBConnection()
+	db := getDBConnection()
+	ctx := context.Background()
+
+	err1 := db.PingContext(ctx)
+	if err1 != nil {
+		fmt.Println(err1.Error())
+		return nil
+	}
+
 	var dataReturned *sql.Rows
 	var reportsReturned []dataObjects.MtrReport
 	defer db.Close()
@@ -149,7 +174,6 @@ func SelectMtrReports_BySyncbox_Timeframe(syncbox string, startTime time.Time, e
 	reportsReturned = append(reportsReturned, parseSqlMultipleReportDataIntoReports(dataReturned)...)
 
 	dataReturned.Close()
-
 	return reportsReturned
 }
 
@@ -157,7 +181,14 @@ func SelectMtrReports_BySyncbox_Timeframe(syncbox string, startTime time.Time, e
 func SelectMtrReports_BySyncbox_DCAndTimeframe(syncbox string, startTime time.Time, endTime time.Time, datacenter string) []dataObjects.MtrReport {
 
 	var err error
-	db, ctx := getDBConnection()
+	db := getDBConnection()
+	ctx := context.Background()
+
+	err1 := db.PingContext(ctx)
+	if err1 != nil {
+		fmt.Println(err.Error())
+	}
+
 	var dataReturned *sql.Rows
 	var reportsReturned []dataObjects.MtrReport
 	defer db.Close()
@@ -175,9 +206,15 @@ func SelectMtrReports_BySyncbox_DCAndTimeframe(syncbox string, startTime time.Ti
 
 // Returns all DB Reports for a specified syncbox, between two datetimes
 func SelectMtrReports_ByHostname(hostname string) []dataObjects.MtrReport {
-
 	var err error
-	db, ctx := getDBConnection()
+	db := getDBConnection()
+	ctx := context.Background()
+
+	err1 := db.PingContext(ctx)
+	if err1 != nil {
+		fmt.Println(err.Error())
+	}
+
 	var dataReturned *sql.Rows
 	var reportsReturned []dataObjects.MtrReport
 	defer db.Close()
@@ -207,7 +244,7 @@ func parseSqlSingleReportDataIntoReport(sqlRowData *sql.Rows) dataObjects.MtrRep
 	for sqlRowData.Next() {
 		if err := sqlRowData.Scan(&reportID, &syncboxID, &startTime, &dataCenter, &hopID, &hopNumber,
 			&hostName, &packetLoss, &packetsSent, &last, &avg, &best, &worst, &stdDev); err != nil {
-			panic(err.Error())
+			fmt.Println(err.Error())
 		} else {
 			if *reportID != report.ReportID {
 
@@ -242,7 +279,7 @@ func parseSqlMultipleReportDataIntoReports(sqlRowData *sql.Rows) []dataObjects.M
 	for sqlRowData.Next() {
 		if err := sqlRowData.Scan(&reportID, &syncboxID, &startTime, &dataCenter, &hopID, &hopNumber,
 			&hostName, &packetLoss, &packetsSent, &last, &avg, &best, &worst, &stdDev); err != nil {
-			panic(err.Error())
+			fmt.Println(err.Error())
 		} else {
 			if *reportID != report.ReportID {
 				if report.ReportID != "" {
@@ -268,49 +305,49 @@ func parseSqlMultipleReportDataIntoReports(sqlRowData *sql.Rows) []dataObjects.M
 }
 
 // Establishes DB connection and context
-func getDBConnection() (*sql.DB, context.Context) {
+func getDBConnection() *sql.DB {
 	var err error
 	connString := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%d;database=%s;",
 		server, user, password, port, database)
 
 	db, err = sql.Open("sqlserver", connString)
 	if err != nil {
-		panic("Error creating connection pool. \n" + err.Error())
+		fmt.Println("Error creating connection pool. \n" + err.Error())
 	}
-
-	ctx := context.Background()
-	err = db.PingContext(ctx)
-	if err != nil {
-		fmt.Println("Error pinging context. \n", err.Error())
-	}
-	return db, ctx
+	return db
 }
 
 // Checks if a Report already exists in the DB
-func CheckIfMtrReportExists(mtrReportID string) (bool, *sql.DB, context.Context) {
+func CheckIfMtrReportExists(db *sql.DB, mtrReportID string) (bool, context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	//defer cancel()
+
 	var err error
 	mtrExists := false
-	db, ctx := getDBConnection()
+	err1 := db.PingContext(ctx)
+	if err1 != nil {
+		fmt.Println("Error pinging context\n", err.Error())
+	}
 
-	dataReturned, err := db.QueryContext(ctx, "sp_CheckIfMtrReportExists", mtrReportID)
+	dataReturned := db.QueryRow("sp_CheckIfMtrReportExists", mtrReportID)
 	if err != nil {
-		dataReturned.Close()
 		fmt.Println("Error checking for Report: ", mtrReportID, "\n", err.Error())
+		//dataReturned.Close()
 	} else {
 		var reportID *string
-		for dataReturned.Next() {
-			if err := dataReturned.Scan(&reportID); err != nil {
-				dataReturned.Close()
-				panic(err.Error())
+		if err := dataReturned.Scan(&reportID); err != nil {
+			if strings.Contains(err.Error(), "no rows in result set") {
+
+			} else {
+				fmt.Println("Error scanning data for", reportID, err.Error())
 			}
 		}
-		dataReturned.Close()
+		//dataReturned.Close()
 		if reportID == nil {
 			mtrExists = false
 		} else {
 			mtrExists = true
 		}
 	}
-	//db.Close()
-	return mtrExists, db, ctx
+	return mtrExists, ctx, cancel
 }

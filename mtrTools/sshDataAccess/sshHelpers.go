@@ -52,7 +52,7 @@ func getSyncboxLogFilenames(syncbox string, targetDate time.Time) []string {
 		syncbox + "/"
 	dataReturned_1, err := runClientCommand(command1)
 	if err != nil {
-		if err.Error() == "Process exited with status 1" {
+		if strings.Contains(err.Error(), "Process exited with status 1") {
 			fmt.Println("No log files found in the " + syncbox + " directory.")
 		} else {
 			fmt.Println("Error running command on SSH Server.\n" + err.Error())
@@ -74,8 +74,8 @@ func getSyncboxMtrData(syncbox string, targetDate time.Time) string {
 
 	dataReturned_2, err := runClientCommand(command2)
 	if err != nil {
-		if err.Error() == "Process exited with status 1" {
-			fmt.Println("No log files found in the " + syncbox + " directory.")
+		if strings.Contains(err.Error(), "Process exited with status 1") {
+			fmt.Println("Error retrieving log data in the " + syncbox + " directory.")
 		} else {
 			fmt.Println("Error running command on SSH Server.\n" + err.Error())
 		}
@@ -245,8 +245,7 @@ func ParseStringToFloat32(s string) float32 {
 	if s != "" {
 		pl, err = strconv.ParseFloat(s, 32)
 		if err != nil {
-			fmt.Println(s)
-			panic(err)
+			fmt.Println(err.Error())
 		}
 	} else {
 		pl = 0.0
@@ -263,8 +262,7 @@ func ParseStringToInt(s string) int {
 	if s != "" {
 		i, err = strconv.Atoi(s)
 		if err != nil {
-			fmt.Println(s)
-			panic(err)
+			fmt.Println(err.Error())
 		}
 	} else {
 		i = 0

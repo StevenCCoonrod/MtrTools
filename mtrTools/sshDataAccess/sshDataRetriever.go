@@ -13,16 +13,18 @@ import (
 
 //Gets ALL mtrs in a specified syncbox's directory for a specified date
 func GetSyncboxMtrReports(syncbox string, targetDate time.Time) []dataObjects.MtrReport {
-
+	var validatedMtrReports []dataObjects.MtrReport
 	mtrLogFilenames := getSyncboxLogFilenames(syncbox, targetDate)
-	//fmt.Println("Got Log File names...")
-	rawMtrData := getSyncboxMtrData(syncbox, targetDate)
-	//fmt.Println("Got Log Data...")
-	tempMtrReports := parseSshDataIntoMtrReport(rawMtrData)
-	//fmt.Println("Parsed data into reports...")
-	validatedMtrReports := matchMtrDataWithFilenames(mtrLogFilenames, tempMtrReports)
-	//fmt.Println("Validated Report ID...")
-
+	if len(mtrLogFilenames) > 0 {
+		rawMtrData := getSyncboxMtrData(syncbox, targetDate)
+		//fmt.Println("Got Log Data...")
+		if len(rawMtrData) > 0 {
+			tempMtrReports := parseSshDataIntoMtrReport(rawMtrData)
+			//fmt.Println("Parsed data into reports...")
+			validatedMtrReports = matchMtrDataWithFilenames(mtrLogFilenames, tempMtrReports)
+			//fmt.Println("Validated Report ID...")
+		}
+	}
 	return validatedMtrReports
 }
 
@@ -46,33 +48,8 @@ func GetMtrData_SpecificTimeframe(syncbox string, startTime time.Time, endTime t
 	return mtrReports
 }
 
-////Gets ALL mtrs in a specified syncbox's directory that have a start time within 5 minutes of the specified time
-func GetMtrData_SpecificTime(syncbox string, targetTime time.Time) []dataObjects.MtrReport {
-	var mtrReports []dataObjects.MtrReport
-	var unfilteredMtrReports []dataObjects.MtrReport
-	startTime := targetTime.Add(-time.Minute * 2)
-	endTime := targetTime.Add(time.Minute * 2)
-	for d := targetTime; !d.After(endTime); d = d.AddDate(0, 0, 1) {
-
-		reports := GetSyncboxMtrReports(strings.ToLower(syncbox), d)
-		//fmt.Println("Got unfiltered reports...")
-		unfilteredMtrReports = append(unfilteredMtrReports, reports...)
-	}
-
-	for _, r := range unfilteredMtrReports {
-		if r.StartTime.After(startTime) && r.StartTime.Before(endTime) {
-			mtrReports = append(mtrReports, r)
-		}
-	}
-	//Get DB Reports within timeframe
-	//Print the reports
-	return mtrReports
-}
-
 //This sets up the ssh connection and runs the given command
 func runClientCommand(command string) (string, error) {
-
-	//fmt.Println(command) //Not needed, used while testing
 
 	config := &ssh.ClientConfig{
 		User: sshUser,
