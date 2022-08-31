@@ -14,6 +14,7 @@ import (
 var server = "localhost"
 
 // var server = "localhost\\MSSQLSERVER02"
+
 var port = 1433
 var user = ""
 var password = ""
