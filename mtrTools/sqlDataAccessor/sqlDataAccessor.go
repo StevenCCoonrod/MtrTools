@@ -16,8 +16,8 @@ var server = "localhost"
 // var server = "localhost\\MSSQLSERVER02"
 
 var port = 1433
-var user = ""
-var password = ""
+var user = "stevec"
+var password = "MoM0H@$ha$hin"
 var database = "NetopsToolsDB"
 
 var db *sql.DB

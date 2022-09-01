@@ -14,9 +14,11 @@ import (
 //Gets ALL mtrs in a specified syncbox's directory for a specified date
 func GetSyncboxMtrReports(syncbox string, targetDate time.Time) []dataObjects.MtrReport {
 	var validatedMtrReports []dataObjects.MtrReport
-	mtrLogFilenames := getSyncboxLogFilenames(syncbox, targetDate)
+	conn := connectToSSH()
+	defer conn.Close()
+	mtrLogFilenames := getSyncboxLogFilenames(conn, syncbox, targetDate)
 	if len(mtrLogFilenames) > 0 {
-		rawMtrData := getSyncboxMtrData(syncbox, targetDate)
+		rawMtrData := getSyncboxMtrData(conn, syncbox, targetDate)
 		//fmt.Println("Got Log Data...")
 		if len(rawMtrData) > 0 {
 			tempMtrReports := parseSshDataIntoMtrReport(rawMtrData)
@@ -48,9 +50,7 @@ func GetMtrData_SpecificTimeframe(syncbox string, startTime time.Time, endTime t
 	return mtrReports
 }
 
-//This sets up the ssh connection and runs the given command
-func runClientCommand(command string) (string, error) {
-
+func connectToSSH() *ssh.Client {
 	config := &ssh.ClientConfig{
 		User: sshUser,
 		Auth: []ssh.AuthMethod{
@@ -63,19 +63,27 @@ func runClientCommand(command string) (string, error) {
 	if err != nil {
 		fmt.Println("Error connecting to SSH Server.\n" + err.Error())
 	}
-	defer conn.Close()
 
-	session, err := conn.NewSession()
-	if err != nil {
-		fmt.Println("Error beginning session on SSH Server.\n" + err.Error())
-	}
-	defer session.Close()
+	return conn
+}
 
+//This sets up the ssh connection and runs the given command
+func runClientCommand(conn *ssh.Client, command string) (string, error) {
 	var buff bytes.Buffer
-	session.Stdout = &buff
 	var err2 error
-	if err2 = session.Run(command); err2 != nil {
+	if conn != nil {
+		session, err := conn.NewSession()
+		if err != nil {
+			fmt.Println("Error beginning session on SSH Server.\n" + err.Error())
+		}
+		defer session.Close()
 
+		session.Stdout = &buff
+
+		if err2 = session.Run(command); err2 != nil {
+			fmt.Println("Error running command: " + command)
+		}
 	}
+
 	return buff.String(), err2
 }

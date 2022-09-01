@@ -118,6 +118,10 @@ func fullMtrRetrievalCycle(DCFilter string) {
 	if isFlagPassed("dc") {
 		fmt.Println("Data Center:\t" + strings.ToUpper(DCFilter))
 	}
+	ch := make(chan string)
+	go func() {
+		
+	}
 	for _, s := range _SyncboxList {
 		var currentSyncbox []string
 		currentSyncbox = append(currentSyncbox, s)

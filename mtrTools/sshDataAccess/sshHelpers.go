@@ -6,10 +6,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/ssh"
 )
 
-var sshUser string = ""
-var sshPassword string = ""
+var sshUser string = "stevec"
+var sshPassword string = "3brahman3"
 var sshTargetHost string = "master3.syncbak.com:22"
 var baseDirectory string = "/var/log/syncbak/catcher-mtrs/"
 
@@ -25,10 +27,12 @@ func GetSyncboxList() []string {
 		fmt.Sprint(date.Year()) + "/" +
 		validMonth + "/" + validDay + "/"
 
-	data, err := runClientCommand(command)
+	conn := connectToSSH()
+	data, err := runClientCommand(conn, command)
 	if err != nil {
 		fmt.Println(err)
 	}
+	defer conn.Close()
 
 	tempSyncboxList := strings.Split(data, "\n")
 	for _, s := range tempSyncboxList {
@@ -41,7 +45,7 @@ func GetSyncboxList() []string {
 }
 
 // Gets the FILE NAMES of ALL logs in the specified date and syncbox directory
-func getSyncboxLogFilenames(syncbox string, targetDate time.Time) []string {
+func getSyncboxLogFilenames(conn *ssh.Client, syncbox string, targetDate time.Time) []string {
 	validMonth := validateDateField(fmt.Sprint(int32(targetDate.Month())))
 	validDay := validateDateField(fmt.Sprint(targetDate.Day()))
 
@@ -50,7 +54,7 @@ func getSyncboxLogFilenames(syncbox string, targetDate time.Time) []string {
 		validMonth + "/" +
 		validDay + "/" +
 		syncbox + "/"
-	dataReturned_1, err := runClientCommand(command1)
+	dataReturned_1, err := runClientCommand(conn, command1)
 	if err != nil {
 		if strings.Contains(err.Error(), "Process exited with status 1") {
 			fmt.Println("No log files found in the " + syncbox + " directory.")
@@ -62,7 +66,7 @@ func getSyncboxLogFilenames(syncbox string, targetDate time.Time) []string {
 }
 
 // Gets the LOG FILE DATA of ALL logs in the specified date and syncbox directory
-func getSyncboxMtrData(syncbox string, targetDate time.Time) string {
+func getSyncboxMtrData(conn *ssh.Client, syncbox string, targetDate time.Time) string {
 	validMonth := validateDateField(fmt.Sprint(int32(targetDate.Month())))
 	validDay := validateDateField(fmt.Sprint(targetDate.Day()))
 
@@ -72,7 +76,7 @@ func getSyncboxMtrData(syncbox string, targetDate time.Time) string {
 		validDay + "/" +
 		syncbox + "/" + "*.log"
 
-	dataReturned_2, err := runClientCommand(command2)
+	dataReturned_2, err := runClientCommand(conn, command2)
 	if err != nil {
 		if strings.Contains(err.Error(), "Process exited with status 1") {
 			fmt.Println("Error retrieving log data in the " + syncbox + " directory.")
