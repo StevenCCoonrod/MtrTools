@@ -12,31 +12,50 @@ import (
 )
 
 //Gets ALL mtrs in a specified syncbox's directory for a specified date
-func GetSyncboxMtrReports(syncbox string, targetDate time.Time) []dataObjects.MtrReport {
+func GetSyncboxMtrReports(syncbox string, targetDate time.Time) ([]dataObjects.MtrReport, string) {
 	var validatedMtrReports []dataObjects.MtrReport
+	syncboxStatus := ""
 	conn := connectToSSH()
-	defer conn.Close()
-	mtrLogFilenames := getSyncboxLogFilenames(conn, syncbox, targetDate)
-	if len(mtrLogFilenames) > 0 {
-		rawMtrData := getSyncboxMtrData(conn, syncbox, targetDate)
-		//fmt.Println("Got Log Data...")
-		if len(rawMtrData) > 0 {
-			tempMtrReports := parseSshDataIntoMtrReport(rawMtrData)
-			//fmt.Println("Parsed data into reports...")
-			validatedMtrReports = matchMtrDataWithFilenames(mtrLogFilenames, tempMtrReports)
-			//fmt.Println("Validated Report ID...")
+
+	if conn != nil {
+		defer conn.Close()
+		fmt.Println("Connected for " + syncbox)
+		mtrLogFilenames := getSyncboxLogFilenames(conn, syncbox, targetDate)
+		if len(mtrLogFilenames) > 0 {
+			rawMtrData := getSyncboxMtrData(conn, syncbox, targetDate)
+			//fmt.Println("Got Log Data...")
+			if len(rawMtrData) > 0 {
+				tempMtrReports := parseSshDataIntoMtrReport(rawMtrData)
+				//fmt.Println("Parsed data into reports...")
+				validatedMtrReports = matchMtrDataWithFilenames(mtrLogFilenames, tempMtrReports)
+				//fmt.Println("Validated Report ID...")
+				if len(validatedMtrReports) > 0 {
+					syncboxStatus = "Active"
+				} else {
+					syncboxStatus = "Other"
+				}
+			} else {
+				syncboxStatus = "Firewall"
+			}
+		} else {
+			syncboxStatus = "Inactive"
 		}
+	} else {
+		fmt.Println("Could not establish connection for " + syncbox)
 	}
-	return validatedMtrReports
+
+	return validatedMtrReports, syncboxStatus
 }
 
 //Gets ALL mtrs in a specified syncbox's directory that have a start time between two specified datetimes
-func GetMtrData_SpecificTimeframe(syncbox string, startTime time.Time, endTime time.Time) []dataObjects.MtrReport {
+func GetMtrData_SpecificTimeframe(syncbox string, startTime time.Time, endTime time.Time) ([]dataObjects.MtrReport, string) {
 	var mtrReports []dataObjects.MtrReport
 	var unfilteredMtrReports []dataObjects.MtrReport
+	var syncboxStatus string
+	var reports []dataObjects.MtrReport
 	for d := startTime; !d.After(endTime); d = d.AddDate(0, 0, 1) {
 
-		reports := GetSyncboxMtrReports(strings.ToLower(syncbox), d)
+		reports, syncboxStatus = GetSyncboxMtrReports(strings.ToLower(syncbox), d)
 
 		unfilteredMtrReports = append(unfilteredMtrReports, reports...)
 	}
@@ -47,10 +66,12 @@ func GetMtrData_SpecificTimeframe(syncbox string, startTime time.Time, endTime t
 	}
 	//Get DB Reports within timeframe
 	//Print the reports
-	return mtrReports
+	return mtrReports, syncboxStatus
 }
 
 func connectToSSH() *ssh.Client {
+	var conn *ssh.Client
+	var err error
 	config := &ssh.ClientConfig{
 		User: sshUser,
 		Auth: []ssh.AuthMethod{
@@ -58,12 +79,20 @@ func connectToSSH() *ssh.Client {
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
-	// connect to ssh server
-	conn, err := ssh.Dial("tcp", sshTargetHost, config)
-	if err != nil {
-		fmt.Println("Error connecting to SSH Server.\n" + err.Error())
-	}
 
+	// connect to ssh server
+	conn, err = ssh.Dial("tcp", sshTargetHost, config)
+
+	if err != nil {
+		for i := 1; i < 4; i++ {
+			time.Sleep(time.Second * 5)
+			fmt.Println("Error connecting to SSH Server. Retry attempt", i, "...")
+			conn, err = ssh.Dial("tcp", sshTargetHost, config)
+			if conn != nil {
+				break
+			}
+		}
+	}
 	return conn
 }
 
