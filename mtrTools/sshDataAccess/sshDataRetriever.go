@@ -19,12 +19,13 @@ func GetSyncboxMtrReports(syncbox string, targetDate time.Time) ([]dataObjects.M
 
 	if conn != nil {
 		defer conn.Close()
-		fmt.Println("Connected for " + syncbox)
-		mtrLogFilenames := getSyncboxLogFilenames(conn, syncbox, targetDate)
-		if len(mtrLogFilenames) > 0 {
-			rawMtrData := getSyncboxMtrData(conn, syncbox, targetDate)
-			//fmt.Println("Got Log Data...")
-			if len(rawMtrData) > 0 {
+		mtrLogFilenames, err := getSyncboxLogFilenames(conn, syncbox, targetDate)
+		if err != nil {
+			syncboxStatus = "Inactive"
+		} else {
+			if len(mtrLogFilenames) > 0 {
+				rawMtrData := getSyncboxMtrData(conn, syncbox, targetDate)
+				//fmt.Println("Got Log Data...")
 				tempMtrReports := parseSshDataIntoMtrReport(rawMtrData)
 				//fmt.Println("Parsed data into reports...")
 				validatedMtrReports = matchMtrDataWithFilenames(mtrLogFilenames, tempMtrReports)
@@ -32,14 +33,13 @@ func GetSyncboxMtrReports(syncbox string, targetDate time.Time) ([]dataObjects.M
 				if len(validatedMtrReports) > 0 {
 					syncboxStatus = "Active"
 				} else {
-					syncboxStatus = "Other"
+					syncboxStatus = "Firewall"
 				}
 			} else {
-				syncboxStatus = "Firewall"
+				syncboxStatus = "Inactive"
 			}
-		} else {
-			syncboxStatus = "Inactive"
 		}
+
 	} else {
 		fmt.Println("Could not establish connection for " + syncbox)
 	}
@@ -109,9 +109,7 @@ func runClientCommand(conn *ssh.Client, command string) (string, error) {
 
 		session.Stdout = &buff
 
-		if err2 = session.Run(command); err2 != nil {
-			fmt.Println("Error running command: " + command)
-		}
+		err2 = session.Run(command)
 	}
 
 	return buff.String(), err2
