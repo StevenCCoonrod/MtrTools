@@ -96,6 +96,66 @@ func connectToSSH() *ssh.Client {
 	return conn
 }
 
+func GetBatchMtrData_SpecificTimeframe(syncboxes []string, startTime time.Time, endTime time.Time) []dataObjects.MtrReport {
+	var mtrReports []dataObjects.MtrReport
+	var unfilteredMtrReports []dataObjects.MtrReport
+	var reports []dataObjects.MtrReport
+	for d := startTime; !d.After(endTime); d = d.AddDate(0, 0, 1) {
+
+		reports = GetBatchSyncboxMtrReports(syncboxes, d)
+
+		unfilteredMtrReports = append(unfilteredMtrReports, reports...)
+	}
+	for _, r := range unfilteredMtrReports {
+		if r.StartTime.After(startTime) && r.StartTime.Before(endTime) {
+			mtrReports = append(mtrReports, r)
+		}
+	}
+	//Get DB Reports within timeframe
+	//Print the reports
+	return mtrReports
+}
+
+func GetBatchSyncboxMtrReports(syncboxes []string, targetDate time.Time) []dataObjects.MtrReport {
+	var validatedMtrReports []dataObjects.MtrReport
+	var batchReports []dataObjects.MtrReport
+	conn := connectToSSH()
+
+	if conn != nil {
+		defer conn.Close()
+		for _, syncbox := range syncboxes {
+			var syncboxStatus string
+			mtrLogFilenames, err := getSyncboxLogFilenames(conn, syncbox, targetDate)
+			if err != nil {
+				syncboxStatus = "Inactive"
+			} else {
+				if len(mtrLogFilenames) > 0 {
+					rawMtrData := getBatchSyncboxMtrData(conn, syncboxes, targetDate)
+					//fmt.Println("Got Log Data...")
+					tempMtrReports := parseSshDataIntoMtrReport(rawMtrData)
+					//fmt.Println("Parsed data into reports...")
+					validatedMtrReports = matchMtrDataWithFilenames(mtrLogFilenames, tempMtrReports)
+					//fmt.Println("Validated Report ID...")
+					if len(validatedMtrReports) > 0 {
+						syncboxStatus = "Active"
+					} else {
+						syncboxStatus = "Firewall"
+					}
+					batchReports = append(batchReports, validatedMtrReports...)
+				} else {
+					syncboxStatus = "Inactive"
+				}
+			}
+			if syncboxStatus == "" {
+
+			}
+		}
+
+	}
+
+	return batchReports
+}
+
 //This sets up the ssh connection and runs the given command
 func runClientCommand(conn *ssh.Client, command string) (string, error) {
 	var buff bytes.Buffer
