@@ -87,6 +87,30 @@ func getSyncboxMtrData(conn *ssh.Client, syncbox string, targetDate time.Time) s
 	return dataReturned_2
 }
 
+func getBatchSyncboxMtrData(conn *ssh.Client, syncboxes []string, targetDate time.Time) string {
+	validMonth := validateDateField(fmt.Sprint(int32(targetDate.Month())))
+	validDay := validateDateField(fmt.Sprint(targetDate.Day()))
+
+	command := "cat "
+
+	for _, s := range syncboxes {
+		command += baseDirectory +
+			fmt.Sprint(targetDate.Year()) + "/" +
+			validMonth + "/" +
+			validDay + "/" +
+			s + "/" + "*.log "
+	}
+	dataReturned, err := runClientCommand(conn, command)
+	if err != nil {
+		// if strings.Contains(err.Error(), "Process exited with status 1") {
+		// 	fmt.Println("Error retrieving log data in the " + syncbox + " directory.")
+		// } else {
+		// 	fmt.Println("Error running command on SSH Server.\n" + err.Error())
+		// }
+	}
+	return dataReturned
+}
+
 // Compares a list of mtr filenames with a list of raw mtr data, and assigns matching filenames to the corresponding report's ID field
 func matchMtrDataWithFilenames(mtrLogFilenames []string, tempMtrReports []dataObjects.MtrReport) []dataObjects.MtrReport {
 	var validatedMtrReports []dataObjects.MtrReport
