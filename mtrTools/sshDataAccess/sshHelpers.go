@@ -16,7 +16,7 @@ var sshTargetHost string = "master3.syncbak.com:22"
 var baseDirectory string = "/var/log/syncbak/catcher-mtrs/"
 
 // Retrieves a list of syncboxes from the current day's mtr directory
-func GetSyncboxList() ([]string, error) {
+func GetSyncboxList() []string {
 
 	date := time.Now()
 	validMonth := validateDateField(fmt.Sprint(int32(date.Month())))
@@ -29,22 +29,23 @@ func GetSyncboxList() ([]string, error) {
 
 	conn := connectToSSH()
 	data, err := runClientCommand(conn, command)
-	if err == nil {
-		defer conn.Close()
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer conn.Close()
 
-		tempSyncboxList := strings.Split(data, "\n")
-		for _, s := range tempSyncboxList {
-			if strings.Contains(s, "-2309") {
-				syncboxList = append(syncboxList, s)
-			}
+	tempSyncboxList := strings.Split(data, "\n")
+	for _, s := range tempSyncboxList {
+		if strings.Contains(s, "-2309") {
+			syncboxList = append(syncboxList, s)
 		}
 	}
 
-	return syncboxList, err
+	return syncboxList
 }
 
 // Gets the FILE NAMES of ALL logs in the specified date and syncbox directory
-func getSyncboxLogFilenames(conn *ssh.Client, syncbox string, targetDate time.Time) ([]string, error) {
+func getSyncboxLogFilenames(conn *ssh.Client, syncbox string, targetDate time.Time) []string {
 	validMonth := validateDateField(fmt.Sprint(int32(targetDate.Month())))
 	validDay := validateDateField(fmt.Sprint(targetDate.Day()))
 
@@ -54,14 +55,14 @@ func getSyncboxLogFilenames(conn *ssh.Client, syncbox string, targetDate time.Ti
 		validDay + "/" +
 		syncbox + "/"
 	dataReturned_1, err := runClientCommand(conn, command1)
-	// if err != nil {
-	// 	if strings.Contains(err.Error(), "Process exited with status 1") {
-	// 		fmt.Println("No log files found in the " + syncbox + " directory.")
-	// 	} else {
-	// 		fmt.Println("Error running command on SSH Server.\n" + err.Error())
-	// 	}
-	// }
-	return strings.Split(dataReturned_1, "\n"), err
+	if err != nil {
+		if strings.Contains(err.Error(), "Process exited with status 1") {
+			fmt.Println("No log files found in the " + syncbox + " directory.")
+		} else {
+			fmt.Println("Error running command on SSH Server.\n" + err.Error())
+		}
+	}
+	return strings.Split(dataReturned_1, "\n")
 }
 
 // Gets the LOG FILE DATA of ALL logs in the specified date and syncbox directory

@@ -137,12 +137,17 @@ func fullMtrRetrievalCycle(DCFilter string) {
 		}
 		close(ch)
 	}()
-
 	for currentSyncbox := range ch {
+		// fmt.Println(currentSyncbox)
 		go getMtrData(currentSyncbox, time.Since(time.Now().UTC().AddDate(0, 0, -1)), time.Duration(0), DCFilter)
-		time.Sleep(time.Second * 5)
+		time.Sleep(time.Second * 2)
 	}
 
+	// for _, s := range _SyncboxList {
+	// 	var currentSyncbox []string
+	// 	currentSyncbox = append(currentSyncbox, s)
+
+	// }
 	fmt.Println("============ MTR Sweep Completed ============")
 }
 
@@ -305,29 +310,25 @@ func insertMtrReportsIntoDB(mtrReports []dataObjects.MtrReport) {
 // Updates the SyncboxList
 func updateSyncboxList() {
 	var sshSyncboxList []string
-	var err error
 	//Get the list of Syncboxes currently in the DB
 	dbSyncboxList := sqlDataAccessor.SelectAllSyncboxes()
 	//Get list of Syncboxes currently on SSH server
-	sshSyncboxList, err = sshDataAccess.GetSyncboxList()
-	if err != nil {
-		fmt.Println("Error retrieving Syncbox list.")
-	} else {
-		//If there's a difference in the number of Syncboxes in either list
-		if len(sshSyncboxList) != 0 && len(dbSyncboxList) != len(sshSyncboxList) {
-			//If the DB list doesn't contain the ssh syncbox, insert it into the DB
-			for _, s := range sshSyncboxList {
-				if !slices.Contains(dbSyncboxList, strings.ToUpper(s)) {
-					sqlDataAccessor.InsertSyncbox(s)
-				}
+	sshSyncboxList = sshDataAccess.GetSyncboxList()
+	//If there's a difference in the number of Syncboxes in either list
+	if len(sshSyncboxList) != 0 && len(dbSyncboxList) != len(sshSyncboxList) {
+		//If the DB list doesn't contain the ssh syncbox, insert it into the DB
+		for _, s := range sshSyncboxList {
+			if !slices.Contains(dbSyncboxList, strings.ToUpper(s)) {
+				sqlDataAccessor.InsertSyncbox(s)
 			}
-			//Select the updated DB Syncbox list
-			dbSyncboxList = sqlDataAccessor.SelectAllSyncboxes()
 		}
+		//Select the updated DB Syncbox list
+		dbSyncboxList = sqlDataAccessor.SelectAllSyncboxes()
 	}
-
 	//Set the SyncboxList equal to the DB list
 	_SyncboxList = dbSyncboxList
+	//Print count of SyncboxList
+	//fmt.Println("Total Syncboxes: " + fmt.Sprint(len(_SyncboxList)) + "\n")
 }
 
 // Helper function to validate a timeframe
