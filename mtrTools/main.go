@@ -195,6 +195,60 @@ func getMtrData(syncbox string, startTime time.Duration, endTime time.Duration, 
 	return mtrReports
 }
 
+func getBatchMtrData(syncboxes []string, startTime time.Duration, endTime time.Duration, DCFilter string) []dataObjects.MtrReport {
+	var mtrReports []dataObjects.MtrReport
+	var batch []dataObjects.MtrReport
+	var syncboxStatus string
+	//Get datetimes based on provided durations
+	start := time.Now().UTC().Add(-startTime)
+	end := time.Now().UTC().Add(-endTime)
+
+	//Print Console Header
+	if !isFlagPassed("a") {
+		fmt.Println("Start Time:\t" + fmt.Sprint(start.Format(time.ANSIC)) +
+			"\nEnd Time:\t" + fmt.Sprint(end.Format(time.ANSIC)))
+
+	}
+	if isFlagPassed("dc") {
+		fmt.Println("Data Center:\t" + strings.ToUpper(DCFilter))
+	}
+
+	//For each syncbox provided, Check SSH, Insert any new reports, and return all reports found in DB
+	var currentBatch []string
+	for i := 0; i <= len(syncboxes); i += 10 {
+		currentBatch = syncboxes[i-i+10]
+		batchReports := sshDataAccess.GetBatchMtrData_SpecificTimeframe(syncboxes, start, end)
+
+		insertMtrReportsIntoDB(batchReports)
+	}
+
+	//Check SSH
+	//batch, syncboxStatus = sshDataAccess.GetMtrData_SpecificTimeframe(syncbox, start, end)
+	//Insert any new reports into the DB
+	insertMtrReportsIntoDB(batch)
+
+	//Select the matching reports from the DB
+	if isFlagPassed("dc") {
+		batch = sqlDataAccessor.SelectMtrReports_BySyncbox_DCAndTimeframe(syncbox, start, end, DCFilter)
+		if len(batch) == 0 {
+			fmt.Println("Reports found for "+syncbox+" going to "+strings.ToUpper(DCFilter)+":", len(batch), ". "+syncboxStatus)
+		} else {
+			fmt.Println("Reports found for "+syncbox+" going to "+strings.ToUpper(DCFilter)+":", len(batch))
+		}
+
+	} else {
+		batch = sqlDataAccessor.SelectMtrReports_BySyncbox_Timeframe(syncbox, start, end)
+		if len(batch) == 0 {
+			fmt.Println("Reports found for "+syncbox+":", len(batch), " -- "+syncboxStatus)
+		} else {
+			fmt.Println("Reports found for "+syncbox+":", len(batch))
+		}
+	}
+	mtrReports = append(mtrReports, batch...)
+
+	return mtrReports
+}
+
 //^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^   Core Functions    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\
 //|||||||||||||||||||||||||||||||||||||=====================||||||||||||||||||||||||||||||||||||||||||
 //vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv Secondary Functions vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\\
