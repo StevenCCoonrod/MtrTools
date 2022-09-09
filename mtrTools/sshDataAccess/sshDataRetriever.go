@@ -92,6 +92,8 @@ func connectToSSH() *ssh.Client {
 				break
 			}
 		}
+	} else {
+		fmt.Println("New connection made")
 	}
 	return conn
 }
@@ -123,34 +125,29 @@ func GetBatchSyncboxMtrReports(syncboxes []string, targetDate time.Time) []dataO
 
 	if conn != nil {
 		defer conn.Close()
-		for _, syncbox := range syncboxes {
-			var syncboxStatus string
-			mtrLogFilenames, err := getSyncboxLogFilenames(conn, syncbox, targetDate)
-			if err != nil {
-				syncboxStatus = "Inactive"
-			} else {
-				if len(mtrLogFilenames) > 0 {
-					rawMtrData := getBatchSyncboxMtrData(conn, syncboxes, targetDate)
-					//fmt.Println("Got Log Data...")
-					tempMtrReports := parseSshDataIntoMtrReport(rawMtrData)
-					//fmt.Println("Parsed data into reports...")
-					validatedMtrReports = matchMtrDataWithFilenames(mtrLogFilenames, tempMtrReports)
-					//fmt.Println("Validated Report ID...")
-					if len(validatedMtrReports) > 0 {
-						syncboxStatus = "Active"
-					} else {
-						syncboxStatus = "Firewall"
-					}
-					batchReports = append(batchReports, validatedMtrReports...)
-				} else {
-					syncboxStatus = "Inactive"
-				}
-			}
-			if syncboxStatus == "" {
+		var syncboxStatus string
+		mtrLogFilenames := getBatchSyncboxLogFilenames(conn, syncboxes, targetDate)
 
+		if len(mtrLogFilenames) > 0 {
+			rawMtrData := getBatchSyncboxMtrData(conn, syncboxes, targetDate)
+			fmt.Println("Got Log Data...", len(rawMtrData))
+			tempMtrReports := parseSshDataIntoMtrReport(rawMtrData)
+			fmt.Println("Parsed data into reports...", len(tempMtrReports))
+			validatedMtrReports = matchBatchMtrDataWithFilenames(mtrLogFilenames, tempMtrReports)
+			fmt.Println("Validated Report ID's... ", len(validatedMtrReports))
+			if len(validatedMtrReports) > 0 {
+				syncboxStatus = "Active"
+			} else {
+				syncboxStatus = "Firewall"
 			}
+			batchReports = append(batchReports, validatedMtrReports...)
+		} else {
+			syncboxStatus = "Inactive"
 		}
 
+		if syncboxStatus == "" {
+
+		}
 	}
 
 	return batchReports
