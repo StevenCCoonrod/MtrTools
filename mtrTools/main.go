@@ -8,7 +8,6 @@ import (
 	"mtrTools/sshDataAccess"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"golang.org/x/exp/slices"
@@ -23,19 +22,19 @@ func main() {
 	if len(os.Args) > 1 {
 
 		switch {
-		case isFlagPassed("start") && isFlagPassed("end"):
+		case IsFlagPassed("start") && IsFlagPassed("end"):
 			mtrSweep(startTime, endTime, dcFilter, syncboxes)
-		case isFlagPassed("start") && !isFlagPassed("end"):
+		case IsFlagPassed("start") && !IsFlagPassed("end"):
 			start := time.Since(time.Now().UTC().Add(-(startTime + (time.Minute * 3))))
 			end := time.Since(time.Now().UTC().Add(-(startTime - (time.Minute * 3))))
 			mtrSweep(start, end, dcFilter, syncboxes)
 		default:
-			if isFlagPassed("a") {
+			if IsFlagPassed("a") {
 				//No Time Frame Functions on ALL boxes
-				fullMtrRetrievalCycle(dcFilter)
+				fullMtrRetrievalCycle()
 			} else {
 				//No Time Frame Functions
-				if isFlagPassed("host") {
+				if IsFlagPassed("host") {
 					getHostnameReport(hostname)
 				}
 				if len(syncboxes) > 0 {
@@ -96,7 +95,7 @@ func mtrSweep(startTime time.Duration, endTime time.Duration, DCFilter string, s
 	validTimes := validateTimeframe(startTime, endTime)
 	if validTimes {
 		var mtrReports []dataObjects.MtrReport
-		if isFlagPassed("a") {
+		if IsFlagPassed("a") {
 			// Timeframe Functions on ALL boxes
 			fmt.Println("Initiating Sweep at ", time.Now().UTC())
 			for _, s := range _SyncboxList {
@@ -111,60 +110,16 @@ func mtrSweep(startTime time.Duration, endTime time.Duration, DCFilter string, s
 
 		}
 
-		if isFlagPassed("p") { // Print to Console
+		if IsFlagPassed("p") { // Print to Console
 			for _, r := range mtrReports {
 				fmt.Println(r.PrintReport())
 			}
 		}
 
-		if isFlagPassed("pf") { // Print to File
+		if IsFlagPassed("pf") { // Print to File
 			printReportsToTextFile(mtrReports)
 		}
 	}
-}
-
-// Retrieves ALL MTR logs for ALL syncboxes in the SyncboxList
-func fullMtrRetrievalCycle(DCFilter string) {
-	fmt.Println("============ Initiating Full MTR Sweep ============")
-	fmt.Println("\nFull Sweep Initiated At", time.Now().UTC().Format(time.ANSIC))
-	if isFlagPassed("dc") {
-		fmt.Println("Data Center:\t" + strings.ToUpper(DCFilter))
-	}
-
-	batches := make([][]string, len(_SyncboxList)/10)
-	position := 0
-	for i, s := range _SyncboxList {
-		if i != 0 && i%10 == 0 {
-			position += 1
-		}
-		batches[position] = append(batches[position], s)
-	}
-
-	var wg sync.WaitGroup
-	ch := make(chan []string)
-
-	go func() {
-		for i, b := range batches {
-			wg.Add(1)
-			defer wg.Done()
-			fmt.Println("Working on Batch", i)
-
-			ch <- b
-
-		}
-
-		close(ch)
-		wg.Wait()
-	}()
-
-	for batch := range ch {
-
-		go getBatchMtrData(batch, time.Since(time.Now().UTC().AddDate(0, 0, -1)), time.Duration(0), DCFilter)
-		time.Sleep(time.Second * 5)
-
-	}
-
-	fmt.Println("============ MTR Sweep Completed ============")
 }
 
 // Check SSH, Insert new reports into DB, Select from DB.
@@ -178,12 +133,12 @@ func getMtrData(syncbox string, startTime time.Duration, endTime time.Duration, 
 	end := time.Now().UTC().Add(-endTime)
 
 	//Print Console Header
-	if !isFlagPassed("a") {
+	if !IsFlagPassed("a") {
 		fmt.Println("Start Time:\t" + fmt.Sprint(start.Format(time.ANSIC)) +
 			"\nEnd Time:\t" + fmt.Sprint(end.Format(time.ANSIC)))
 
 	}
-	if isFlagPassed("dc") {
+	if IsFlagPassed("dc") {
 		fmt.Println("Data Center:\t" + strings.ToUpper(DCFilter))
 	}
 
@@ -195,7 +150,7 @@ func getMtrData(syncbox string, startTime time.Duration, endTime time.Duration, 
 	insertMtrReportsIntoDB(batch)
 
 	//Select the matching reports from the DB
-	if isFlagPassed("dc") {
+	if IsFlagPassed("dc") {
 		batch = sqlDataAccessor.SelectMtrReports_BySyncbox_DCAndTimeframe(syncbox, start, end, DCFilter)
 		if len(batch) == 0 {
 			fmt.Println("Reports found for "+syncbox+" going to "+strings.ToUpper(DCFilter)+":", len(batch), ". "+syncboxStatus)
@@ -216,56 +171,6 @@ func getMtrData(syncbox string, startTime time.Duration, endTime time.Duration, 
 	return mtrReports
 }
 
-func getBatchMtrData(syncboxes []string, startTime time.Duration, endTime time.Duration, DCFilter string) []dataObjects.MtrReport {
-
-	var batchReports []dataObjects.MtrReport
-	//var syncboxStatus string
-	//Get datetimes based on provided durations
-	start := time.Now().UTC().Add(-startTime)
-	end := time.Now().UTC().Add(-endTime)
-
-	//Print Console Header
-	if !isFlagPassed("a") {
-		fmt.Println("Start Time:\t" + fmt.Sprint(start.Format(time.ANSIC)) +
-			"\nEnd Time:\t" + fmt.Sprint(end.Format(time.ANSIC)))
-
-	}
-	if isFlagPassed("dc") {
-		fmt.Println("Data Center:\t" + strings.ToUpper(DCFilter))
-	}
-
-	//For each syncbox provided, Check SSH, Insert any new reports, and return all reports found in DB
-
-	batchReports = sshDataAccess.GetBatchMtrData_SpecificTimeframe(syncboxes, start, end)
-	if batchReports == nil {
-
-	}
-	//Check SSH
-	//batch, syncboxStatus = sshDataAccess.GetMtrData_SpecificTimeframe(syncbox, start, end)
-	//Insert any new reports into the DB
-	insertMtrReportsIntoDB(batchReports)
-
-	//Select the matching reports from the DB
-	// if isFlagPassed("dc") {
-	// 	batch = sqlDataAccessor.SelectMtrReports_BySyncbox_DCAndTimeframe(syncbox, start, end, DCFilter)
-	// 	if len(batch) == 0 {
-	// 		fmt.Println("Reports found for "+syncbox+" going to "+strings.ToUpper(DCFilter)+":", len(batch), ". "+syncboxStatus)
-	// 	} else {
-	// 		fmt.Println("Reports found for "+syncbox+" going to "+strings.ToUpper(DCFilter)+":", len(batch))
-	// 	}
-
-	// } else {
-	// 	batch = sqlDataAccessor.SelectMtrReports_BySyncbox_Timeframe(syncbox, start, end)
-	// 	if len(batch) == 0 {
-	// 		fmt.Println("Reports found for "+syncbox+":", len(batch), " -- "+syncboxStatus)
-	// 	} else {
-	// 		fmt.Println("Reports found for "+syncbox+":", len(batch))
-	// 	}
-	// }
-
-	return batchReports
-}
-
 //^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^   Core Functions    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\
 //|||||||||||||||||||||||||||||||||||||=====================||||||||||||||||||||||||||||||||||||||||||
 //vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv Secondary Functions vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\\
@@ -277,32 +182,9 @@ func initialize() ([]string, time.Duration, time.Duration, string, string) {
 
 	startTime, endTime, dcFilter, hostname := setFlags()
 	syncboxArgs := flag.Args()
-	var syncboxes []string
-	for _, s := range syncboxArgs {
-		syncboxes = append(syncboxes, strings.ToLower(s))
-	}
-	return syncboxes, startTime, endTime, dcFilter, hostname
-}
+	syncboxes := processSyncboxArgs(syncboxArgs)
 
-// Displays program details to console
-func programDisplay() {
-	fmt.Print("\n===============================================")
-	fmt.Print(" Mtr Tools ")
-	fmt.Println("===============================================")
-	fmt.Println("Flags:")
-	fmt.Println("\t-a\tRuns a sweep of ALL Syncboxes")
-	fmt.Println("\t-start\tSpecifies a target search start time. Eg. 5h30m = 5 hours and 30 minutes ago")
-	fmt.Println("\t-end\tSpecifies a target search end time. Eg. 0m = now, 0 minutes ago")
-	fmt.Println("\t-p\tPrints results to the command line")
-	fmt.Println("\t-pf\tPrint the results to a text file")
-	fmt.Println("Syncboxes:", len(_SyncboxList))
-	for i, s := range _SyncboxList {
-		if i%7 == 0 {
-			fmt.Print("\n" + s)
-		} else {
-			fmt.Print("\t" + s)
-		}
-	}
+	return syncboxes, startTime, endTime, dcFilter, hostname
 }
 
 // Takes a slice of MTR Reports, checks if each is already in the DB, if not it inserts it
@@ -313,6 +195,8 @@ func insertMtrReportsIntoDB(mtrReports []dataObjects.MtrReport) {
 
 		if !successfulInsert {
 			fmt.Println("Error inserting reports.")
+		} else {
+			fmt.Println(len(mtrReports), "inserted into the DB")
 		}
 	}
 }
@@ -337,36 +221,8 @@ func updateSyncboxList() {
 		//Select the updated DB Syncbox list
 		dbSyncboxList = sqlDataAccessor.SelectAllSyncboxes()
 	}
-	//Set the SyncboxList equal to the DB list
+	//Set the _SyncboxList equal to the DB list
 	_SyncboxList = dbSyncboxList
-	//Print count of SyncboxList
-	//fmt.Println("Total Syncboxes: " + fmt.Sprint(len(_SyncboxList)) + "\n")
-}
-
-// Helper function to validate a timeframe
-func validateTimeframe(startTime time.Duration, endTime time.Duration) bool {
-	// Check for valid start and end times
-	validTimes := false
-
-	switch {
-	// Check if start time is 5 minutes in the past
-	case !time.Now().Add(-startTime).Before(time.Now().Add(-time.Minute * 4)):
-		validTimes = false
-		fmt.Println("Start time must be 5 minutes or more ago.")
-	// Check if end time is after time.Now() time.Now()
-	case !(time.Now().Add(-endTime).Before(time.Now()) || time.Now().Add(-endTime).Equal(time.Now())):
-		validTimes = false
-		fmt.Println("End time cannot be in the future")
-	// Check if end time is before start time
-	case !time.Now().Add(-endTime).After(time.Now().Add(-startTime)):
-		validTimes = false
-		fmt.Println("End time must be after start time.")
-	// If none of these cases arise, times are valid
-	default:
-		validTimes = true
-	}
-
-	return validTimes
 }
 
 // Prints all reports provided to a text file
@@ -396,37 +252,4 @@ func printReportsToTextFile(reports []dataObjects.MtrReport) {
 			}
 		}
 	}
-}
-
-// Sets the values provided for the flags accepted by the program
-func setFlags() (time.Duration, time.Duration, string, string) {
-	var all bool
-	flag.BoolVar(&all, "a", false, "Target ALL syncboxes")
-	defaultTime := time.Since(time.Now())
-	var startTime time.Duration
-	flag.DurationVar(&startTime, "start", defaultTime, "Search timeframe start time")
-	var endTime time.Duration
-	flag.DurationVar(&endTime, "end", defaultTime, "Search timeframe end time")
-	var printResult bool
-	flag.BoolVar(&printResult, "p", false, "Print search results to command-line")
-	var filterByDataCenter string
-	flag.StringVar(&filterByDataCenter, "dc", "", "Filter search results by data center")
-	var printToFile bool
-	flag.BoolVar(&printToFile, "pf", false, "Print results to a text file")
-	var hostname string
-	flag.StringVar(&hostname, "host", "", "View reports involving the host name provided")
-
-	flag.Parse()
-	return startTime, endTime, filterByDataCenter, hostname
-}
-
-// Verifies if a flag has been provided
-func isFlagPassed(name string) bool {
-	found := false
-	flag.Visit(func(f *flag.Flag) {
-		if f.Name == name {
-			found = true
-		}
-	})
-	return found
 }

@@ -7,25 +7,25 @@ import (
 )
 
 type MtrHop struct {
-	HopID       int
-	ReportID    string
-	HopNumber   int
-	Hostname    string
-	PacketLoss  float32
-	PacketsSent int
-	LastPing    float32
-	AveragePing float32
-	BestPing    float32
-	WorstPing   float32
-	StdDev      float32
+	HopID       int     `json:"HopID"`
+	ReportID    string  `json:"ReportID"`
+	HopNumber   int     `json:"HopNumber"`
+	Hostname    string  `json:"Hostname"`
+	PacketLoss  float32 `json:"PacketLoss"`
+	PacketsSent int     `json:"PacketsSent"`
+	LastPing    float32 `json:"LastPing"`
+	AveragePing float32 `json:"AveragePing"`
+	BestPing    float32 `json:"BestPing"`
+	WorstPing   float32 `json:"WorstPing"`
+	StdDev      float32 `json:"StdDev"`
 }
 
 type MtrReport struct {
-	ReportID   string
-	SyncboxID  string
-	StartTime  time.Time
-	DataCenter string
-	Hops       []MtrHop
+	ReportID   string    `json:"ReportID"`
+	SyncboxID  string    `json:"SyncboxID"`
+	StartTime  time.Time `json:"StartTime"`
+	DataCenter string    `json:"DataCenter"`
+	Hops       []MtrHop  `json:"Hops"`
 }
 
 // Prints out an Mtr Report with properly aligned fields

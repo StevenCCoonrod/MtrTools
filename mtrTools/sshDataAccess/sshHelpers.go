@@ -88,7 +88,7 @@ func getSyncboxMtrData(conn *ssh.Client, syncbox string, targetDate time.Time) s
 	return dataReturned_2
 }
 
-func getBatchSyncboxLogFilenames(conn *ssh.Client, syncboxes []string, targetDate time.Time) []string {
+func getBatchSyncboxLogFilenames(conn *ssh.Client, syncboxes []string, targetDate time.Time) ([]string, error) {
 	validMonth := validateDateField(fmt.Sprint(int32(targetDate.Month())))
 	validDay := validateDateField(fmt.Sprint(targetDate.Day()))
 
@@ -102,14 +102,8 @@ func getBatchSyncboxLogFilenames(conn *ssh.Client, syncboxes []string, targetDat
 	}
 
 	dataReturned_1, err := runClientCommand(conn, command)
-	if err != nil {
-		// if strings.Contains(err.Error(), "Process exited with status 1") {
-		// 	fmt.Println("No log files found in the " + syncbox + " directory.")
-		// } else {
-		// 	fmt.Println("Error running command on SSH Server.\n" + err.Error())
-		// }
-	}
-	return strings.Split(dataReturned_1, "\n")
+
+	return strings.Split(dataReturned_1, "\n"), err
 }
 
 func getBatchSyncboxMtrData(conn *ssh.Client, syncboxes []string, targetDate time.Time) string {

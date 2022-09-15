@@ -11,7 +11,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-//Gets ALL mtrs in a specified syncbox's directory for a specified date
+// Gets ALL mtrs in a specified syncbox's directory for a specified date
 func GetSyncboxMtrReports(syncbox string, targetDate time.Time) ([]dataObjects.MtrReport, string) {
 	var validatedMtrReports []dataObjects.MtrReport
 	syncboxStatus := ""
@@ -47,7 +47,7 @@ func GetSyncboxMtrReports(syncbox string, targetDate time.Time) ([]dataObjects.M
 	return validatedMtrReports, syncboxStatus
 }
 
-//Gets ALL mtrs in a specified syncbox's directory that have a start time between two specified datetimes
+// Gets ALL mtrs in a specified syncbox's directory that have a start time between two specified datetimes
 func GetMtrData_SpecificTimeframe(syncbox string, startTime time.Time, endTime time.Time) ([]dataObjects.MtrReport, string) {
 	var mtrReports []dataObjects.MtrReport
 	var unfilteredMtrReports []dataObjects.MtrReport
@@ -102,12 +102,15 @@ func GetBatchMtrData_SpecificTimeframe(syncboxes []string, startTime time.Time, 
 	var mtrReports []dataObjects.MtrReport
 	var unfilteredMtrReports []dataObjects.MtrReport
 	var reports []dataObjects.MtrReport
+	//Because of the directory structure on the server, a different command needs to be ran for each day involved
+	//This loop ensures that the command for every day involved in the search is parsed properly
 	for d := startTime; !d.After(endTime); d = d.AddDate(0, 0, 1) {
 
 		reports = GetBatchSyncboxMtrReports(syncboxes, d)
 
 		unfilteredMtrReports = append(unfilteredMtrReports, reports...)
 	}
+	//Filter all logs found down to only those between the search time parameters
 	for _, r := range unfilteredMtrReports {
 		if r.StartTime.After(startTime) && r.StartTime.Before(endTime) {
 			mtrReports = append(mtrReports, r)
@@ -124,10 +127,13 @@ func GetBatchSyncboxMtrReports(syncboxes []string, targetDate time.Time) []dataO
 	conn := connectToSSH()
 
 	if conn != nil {
+		fmt.Println("Connected for Batch:", syncboxes)
 		defer conn.Close()
 		var syncboxStatus string
-		mtrLogFilenames := getBatchSyncboxLogFilenames(conn, syncboxes, targetDate)
+		mtrLogFilenames, err := getBatchSyncboxLogFilenames(conn, syncboxes, targetDate)
+		if err != nil {
 
+		}
 		if len(mtrLogFilenames) > 0 {
 			rawMtrData := getBatchSyncboxMtrData(conn, syncboxes, targetDate)
 			fmt.Println("Got Log Data...", len(rawMtrData))
@@ -153,7 +159,7 @@ func GetBatchSyncboxMtrReports(syncboxes []string, targetDate time.Time) []dataO
 	return batchReports
 }
 
-//This sets up the ssh connection and runs the given command
+// This sets up the ssh connection and runs the given command
 func runClientCommand(conn *ssh.Client, command string) (string, error) {
 	var buff bytes.Buffer
 	var err2 error
@@ -167,7 +173,7 @@ func runClientCommand(conn *ssh.Client, command string) (string, error) {
 		session.Stdout = &buff
 
 		if err2 = session.Run(command); err2 != nil {
-			fmt.Println("Error running command: " + command)
+
 		}
 	}
 
