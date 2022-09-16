@@ -173,7 +173,8 @@ func runClientCommand(conn *ssh.Client, command string) (string, error) {
 		session.Stdout = &buff
 
 		if err2 = session.Run(command); err2 != nil {
-
+			fmt.Println("Command:", command)
+			fmt.Println("Error returned:", err2.Error())
 		}
 	}
 

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 )
 
@@ -39,17 +40,15 @@ func main() {
 				}
 				if len(syncboxes) > 0 {
 					var reports []dataObjects.MtrReport
-					for _, s := range syncboxes {
-						reports = append(reports, getMtrData(
-							s,
-							time.Since(time.Now().AddDate(0, 0, -1)),
-							time.Since(time.Now()),
-							dcFilter)...)
+					reports = append(reports, mtrSweep(
+						time.Since(time.Now().AddDate(0, 0, -1)),
+						time.Since(time.Now()),
+						dcFilter,
+						syncboxes)...)
 
-						fmt.Println("Reports found:", len(reports))
-					}
-
+					fmt.Println("Reports found:", len(reports))
 				}
+
 			}
 		}
 	} else {
@@ -91,21 +90,35 @@ func getHostnameReport(hostname string) {
 }
 
 // Validates Timeframe and Initializes Mtr Retrieval
-func mtrSweep(startTime time.Duration, endTime time.Duration, DCFilter string, syncboxes []string) {
+func mtrSweep(startTime time.Duration, endTime time.Duration, DCFilter string, syncboxes []string) []dataObjects.MtrReport {
+
+	searchStartTime := time.Now().UTC()
+	start := searchStartTime.Add(-startTime)
+	end := searchStartTime.Add(-endTime)
 	validTimes := validateTimeframe(startTime, endTime)
+	var mtrReports []dataObjects.MtrReport
+
 	if validTimes {
-		var mtrReports []dataObjects.MtrReport
 		if IsFlagPassed("a") {
 			// Timeframe Functions on ALL boxes
-			fmt.Println("Initiating Sweep at ", time.Now().UTC())
-			for _, s := range _SyncboxList {
-				mtrReports = getMtrData(s, startTime, endTime, DCFilter)
+			fmt.Println("Initiating Sweep at ", searchStartTime)
+			fmt.Println("Start Time:\t" + fmt.Sprint(start.Format(time.ANSIC)) +
+				"\nEnd Time:\t" + fmt.Sprint(end.Format(time.ANSIC)))
+			if IsFlagPassed("dc") {
+				fmt.Println("Data Center:\t" + strings.ToUpper(DCFilter))
 			}
-
+			for _, s := range _SyncboxList {
+				mtrReports = append(mtrReports, getMtrData(s, searchStartTime, startTime, endTime, DCFilter)...)
+			}
 		} else {
+			fmt.Println("Start Time:\t" + fmt.Sprint(start.Format(time.ANSIC)) +
+				"\nEnd Time:\t" + fmt.Sprint(end.Format(time.ANSIC)))
+			if IsFlagPassed("dc") {
+				fmt.Println("Data Center:\t" + strings.ToUpper(DCFilter))
+			}
 			// Timeframe Functions on Specific boxes
 			for _, s := range syncboxes {
-				mtrReports = getMtrData(s, startTime, endTime, DCFilter)
+				mtrReports = append(mtrReports, getMtrData(s, searchStartTime, startTime, endTime, DCFilter)...)
 			}
 
 		}
@@ -119,28 +132,71 @@ func mtrSweep(startTime time.Duration, endTime time.Duration, DCFilter string, s
 		if IsFlagPassed("pf") { // Print to File
 			printReportsToTextFile(mtrReports)
 		}
+
+	}
+	// var sortedReports []dataObjects.MtrReport
+	// for _, r := range mtrReports{
+	// 	if slices.Contains(sortedReports, r){
+
+	// 	}
+	// }
+	searchReport(mtrReports)
+
+	return mtrReports
+}
+
+func searchReport(mtrReports []dataObjects.MtrReport) {
+
+	m := make(map[string]int)
+	longestHostname := ""
+	for _, r := range mtrReports {
+		for _, h := range r.Hops {
+			hostname := h.Hostname
+			if !strings.Contains(hostname, "???") {
+				if !slices.Contains(maps.Keys(m), hostname) {
+					m[hostname] = 1
+				} else {
+					m[hostname] = m[hostname] + 1
+				}
+				if len(hostname) > len(longestHostname) {
+					longestHostname = hostname
+				}
+			}
+
+		}
+	}
+
+	fmt.Println("************************ Search Results ************************")
+	fmt.Println("Total Reports:", len(mtrReports))
+	fmt.Println("Distinct Hosts:", len(m))
+	fmt.Print("HOST")
+	for i := 0; i <= len(longestHostname); i++ {
+		fmt.Print(" ")
+	}
+	fmt.Print("# of reports hitting host")
+	fmt.Println("\tPercentage of Reports hitting hop")
+
+	for key, value := range m {
+		hostFillSpace := len(longestHostname) - len(key)
+		fmt.Print(key)
+		for i := 0; i <= hostFillSpace; i++ {
+			fmt.Print(" ")
+		}
+		fmt.Print("\t", value)
+		percentage := (float32(value) / float32(len(mtrReports)) * 100)
+		fmt.Println("\t\t\t\t\t", fmt.Sprintf("%.2f", percentage))
 	}
 }
 
 // Check SSH, Insert new reports into DB, Select from DB.
 // Retrieves all log files for the specified boxes within the timeframe provided
-func getMtrData(syncbox string, startTime time.Duration, endTime time.Duration, DCFilter string) []dataObjects.MtrReport {
+func getMtrData(syncbox string, searchStartTime time.Time, startTime time.Duration, endTime time.Duration, DCFilter string) []dataObjects.MtrReport {
 	var mtrReports []dataObjects.MtrReport
 	var batch []dataObjects.MtrReport
 	var syncboxStatus string
 	//Get datetimes based on provided durations
-	start := time.Now().UTC().Add(-startTime)
-	end := time.Now().UTC().Add(-endTime)
-
-	//Print Console Header
-	if !IsFlagPassed("a") {
-		fmt.Println("Start Time:\t" + fmt.Sprint(start.Format(time.ANSIC)) +
-			"\nEnd Time:\t" + fmt.Sprint(end.Format(time.ANSIC)))
-
-	}
-	if IsFlagPassed("dc") {
-		fmt.Println("Data Center:\t" + strings.ToUpper(DCFilter))
-	}
+	start := searchStartTime.Add(-startTime)
+	end := searchStartTime.Add(-endTime)
 
 	//For each syncbox provided, Check SSH, Insert any new reports, and return all reports found in DB
 
@@ -178,6 +234,7 @@ func getMtrData(syncbox string, startTime time.Duration, endTime time.Duration, 
 // Retrieves Syncbox list, establishes flag values and Syncbox args
 func initialize() ([]string, time.Duration, time.Duration, string, string) {
 	//Update the SyncboxList []string
+	fmt.Println("Initializing...")
 	updateSyncboxList()
 
 	startTime, endTime, dcFilter, hostname := setFlags()
@@ -205,6 +262,7 @@ func insertMtrReportsIntoDB(mtrReports []dataObjects.MtrReport) {
 // and adds any that aren't in the DB to the DB.
 // Updates the SyncboxList
 func updateSyncboxList() {
+	fmt.Println("Updating syncbox list...")
 	var sshSyncboxList []string
 	//Get the list of Syncboxes currently in the DB
 	dbSyncboxList := sqlDataAccessor.SelectAllSyncboxes()

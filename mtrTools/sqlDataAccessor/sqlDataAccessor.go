@@ -96,6 +96,8 @@ func SelectAllSyncboxes() []string {
 
 	var syncboxList []string
 	var err error
+
+	fmt.Println("Connecting...")
 	db := getDBConnection()
 	ctx := context.Background()
 

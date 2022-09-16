@@ -10,9 +10,11 @@ import (
 
 // Retrieves ALL MTR logs for ALL syncboxes in the SyncboxList
 func fullMtrRetrievalCycle() {
+
+	timeOfInitiation := time.Now().UTC()
 	fmt.Println("============ Initiating Full MTR Sweep ============")
-	fmt.Println("\nFull Sweep Initiated At", time.Now().UTC().Format(time.ANSIC))
-	batchCount := 15
+	fmt.Println("\nFull Sweep Initiated At", timeOfInitiation.Format(time.ANSIC))
+	batchCount := 10
 	batches := make([][]string, len(_SyncboxList)/batchCount+1)
 	position := 0
 	for i, s := range _SyncboxList {
@@ -41,6 +43,8 @@ func fullMtrRetrievalCycle() {
 
 			if i%5 == 0 {
 				time.Sleep(time.Second * 5)
+			} else {
+				time.Sleep(time.Second * 3)
 			}
 
 		}
@@ -52,15 +56,12 @@ func fullMtrRetrievalCycle() {
 		wg.Add(1)
 		fmt.Println("Working on Batch:", batch)
 		go getBatchMtrData(&wg, batch, time.Since(time.Now().UTC().AddDate(0, 0, -1)), time.Duration(0))
-		//wg.Wait()
-		fmt.Println("Batch", batch, "completed")
+		time.Sleep(time.Second * 5)
+
 	}
 	wg.Wait()
 	fmt.Println("============ MTR Sweep Completed ============")
-}
-
-func startBatchChannel() {
-
+	fmt.Println("Cycle Duration:", time.Since(timeOfInitiation))
 }
 
 func getBatchMtrData(wg *sync.WaitGroup, syncboxes []string, startTime time.Duration, endTime time.Duration) []dataObjects.MtrReport {
@@ -82,7 +83,7 @@ func getBatchMtrData(wg *sync.WaitGroup, syncboxes []string, startTime time.Dura
 
 	batchReports = sshDataAccess.GetBatchMtrData_SpecificTimeframe(syncboxes, start, end)
 	if batchReports == nil {
-
+		fmt.Println("***No reports returned")
 	}
 	//Check SSH
 	//batch, syncboxStatus = sshDataAccess.GetMtrData_SpecificTimeframe(syncbox, start, end)
@@ -90,5 +91,6 @@ func getBatchMtrData(wg *sync.WaitGroup, syncboxes []string, startTime time.Dura
 	fmt.Println("Inserting into DB for:", syncboxes)
 	insertMtrReportsIntoDB(batchReports)
 	wg.Done()
+	fmt.Println("Batch", syncboxes, "completed")
 	return batchReports
 }

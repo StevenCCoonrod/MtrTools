@@ -7,7 +7,7 @@ rem echo if no error messages appear DB was created
 rem pause
 
 rem Generic Local Host
-sqlcmd -S localhost\MSSQLSERVER02 -E -i NetopsToolsDB.sql
+sqlcmd -S localhost -E -i NetopsToolsDB.sql
 echo .
 echo if no error messages appear, database was created successfully
 pause
