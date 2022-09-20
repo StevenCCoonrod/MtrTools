@@ -244,20 +244,6 @@ func initialize() ([]string, time.Duration, time.Duration, string, string) {
 	return syncboxes, startTime, endTime, dcFilter, hostname
 }
 
-// Takes a slice of MTR Reports, checks if each is already in the DB, if not it inserts it
-func insertMtrReportsIntoDB(mtrReports []dataObjects.MtrReport) {
-	if len(mtrReports) > 0 {
-		//Check if the Report already exists in the DB
-		successfulInsert := sqlDataAccessor.InsertMtrReports(mtrReports)
-
-		if !successfulInsert {
-			fmt.Println("Error inserting reports.")
-		} else {
-			fmt.Println(len(mtrReports), "inserted into the DB")
-		}
-	}
-}
-
 // Compares the DB and SSH Server list of Syncboxes
 // and adds any that aren't in the DB to the DB.
 // Updates the SyncboxList

@@ -99,6 +99,7 @@ CREATE PROCEDURE [sp_InsertMtrReport]
 	@DataCenter			[VARCHAR](2)
 )
 AS
+IF NOT EXISTS (SELECT MtrReportID FROM MtrReport WHERE MtrReportID = @MtrReportID)
 BEGIN
 	INSERT INTO [dbo].[MtrReport]
 		([MtrReportID],[SyncboxID],[StartTime],[DataCenter])

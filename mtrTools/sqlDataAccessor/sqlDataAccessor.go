@@ -47,46 +47,43 @@ func InsertSyncbox(syncbox string) {
 }
 
 // Inserts an SSH MtrReport into the DB
-func InsertMtrReports(mtrReports []dataObjects.MtrReport) bool {
-
+func InsertMtrReports(mtrReports []dataObjects.MtrReport) int {
+	reportsInserted := 0
 	successfulInsert := false
 	db := getDBConnection()
 	for _, report := range mtrReports {
-		reportExists, ctx, cancel := CheckIfMtrReportExists(db, report.ReportID)
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 		defer db.Close()
-		if !reportExists {
-			//Insert the Report
-			_, err := db.ExecContext(ctx, "sp_InsertMtrReport", report.ReportID, report.SyncboxID, report.StartTime, report.DataCenter)
+		//Insert the Report
+		_, err := db.ExecContext(ctx, "sp_InsertMtrReport", report.ReportID, report.SyncboxID, report.StartTime, report.DataCenter)
 
-			if err != nil {
-				fmt.Println("Error inserting report. ", err.Error())
-				successfulInsert = false
-			} else {
-				successfulInsert = true
-			}
-			//Insert the report's hops
-			if successfulInsert {
-				for _, h := range report.Hops {
+		if err != nil {
+			fmt.Println("Error inserting report. ", err.Error())
+			successfulInsert = false
+		} else {
+			reportsInserted += 1
+			successfulInsert = true
+		}
+		//Insert the report's hops
+		if successfulInsert {
+			for _, h := range report.Hops {
 
-					_, err := db.ExecContext(ctx, "sp_InsertMtrHop", report.ReportID, h.HopNumber, h.Hostname,
-						h.PacketLoss, h.PacketsSent, h.LastPing, h.AveragePing, h.BestPing, h.WorstPing, h.StdDev)
+				_, err := db.ExecContext(ctx, "sp_InsertMtrHop", report.ReportID, h.HopNumber, h.Hostname,
+					h.PacketLoss, h.PacketsSent, h.LastPing, h.AveragePing, h.BestPing, h.WorstPing, h.StdDev)
 
-					if err != nil {
-						fmt.Println("Error inserting hop", h.HopNumber, "for", report.ReportID, "\n", err.Error())
-						successfulInsert = false
-						break
-					} else {
-						successfulInsert = true
-					}
+				if err != nil {
+					fmt.Println("Error inserting hop", h.HopNumber, "for", report.ReportID, "\n", err.Error())
+					successfulInsert = false
+					break
+				} else {
+					successfulInsert = true
 				}
 			}
-		} else {
-			successfulInsert = true
 		}
 	}
 
-	return successfulInsert
+	return reportsInserted
 }
 
 //================== SELECT STATEMENTS ===================\\
@@ -321,36 +318,36 @@ func getDBConnection() *sql.DB {
 }
 
 // Checks if a Report already exists in the DB
-func CheckIfMtrReportExists(db *sql.DB, mtrReportID string) (bool, context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	//defer cancel()
+// func CheckIfMtrReportExists(db *sql.DB, mtrReportID string) (bool, context.Context, context.CancelFunc) {
+// 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+// 	//defer cancel()
 
-	var err error
-	mtrExists := false
-	err1 := db.PingContext(ctx)
-	if err1 != nil {
-		fmt.Println("Error pinging context\n", err.Error())
-	}
+// 	var err error
+// 	mtrExists := false
+// 	err1 := db.PingContext(ctx)
+// 	if err1 != nil {
+// 		fmt.Println("Error pinging context\n", err.Error())
+// 	}
 
-	dataReturned := db.QueryRow("sp_CheckIfMtrReportExists", mtrReportID)
-	if err != nil {
-		fmt.Println("Error checking for Report: ", mtrReportID, "\n", err.Error())
-		//dataReturned.Close()
-	} else {
-		var reportID *string
-		if err := dataReturned.Scan(&reportID); err != nil {
-			if strings.Contains(err.Error(), "no rows in result set") {
+// 	// dataReturned := db.QueryRow("sp_CheckIfMtrReportExists", mtrReportID)
+// 	// if err != nil {
+// 	// 	fmt.Println("Error checking for Report: ", mtrReportID, "\n", err.Error())
+// 	// 	//dataReturned.Close()
+// 	// } else {
+// 	// 	var reportID *string
+// 	// 	if err := dataReturned.Scan(&reportID); err != nil {
+// 	// 		if strings.Contains(err.Error(), "no rows in result set") {
 
-			} else {
-				fmt.Println("Error scanning data for", reportID, err.Error())
-			}
-		}
-		//dataReturned.Close()
-		if reportID == nil {
-			mtrExists = false
-		} else {
-			mtrExists = true
-		}
-	}
-	return mtrExists, ctx, cancel
-}
+// 	// 		} else {
+// 	// 			fmt.Println("Error scanning data for", reportID, err.Error())
+// 	// 		}
+// 	// 	}
+// 	// 	//dataReturned.Close()
+// 	// 	if reportID == nil {
+// 	// 		mtrExists = false
+// 	// 	} else {
+// 	// 		mtrExists = true
+// 	// 	}
+// 	// }
+// 	return mtrExists, ctx, cancel
+// }

@@ -15,7 +15,7 @@ import (
 func GetSyncboxMtrReports(syncbox string, targetDate time.Time) ([]dataObjects.MtrReport, string) {
 	var validatedMtrReports []dataObjects.MtrReport
 	syncboxStatus := ""
-	conn := connectToSSH()
+	conn := ConnectToSSH()
 
 	if conn != nil {
 		defer conn.Close()
@@ -25,7 +25,7 @@ func GetSyncboxMtrReports(syncbox string, targetDate time.Time) ([]dataObjects.M
 			rawMtrData := getSyncboxMtrData(conn, syncbox, targetDate)
 			//fmt.Println("Got Log Data...")
 			if len(rawMtrData) > 0 {
-				tempMtrReports := parseSshDataIntoMtrReport(rawMtrData)
+				tempMtrReports := ParseSshDataIntoMtrReport(rawMtrData)
 				//fmt.Println("Parsed data into reports...")
 				validatedMtrReports = matchMtrDataWithFilenames(mtrLogFilenames, tempMtrReports)
 				//fmt.Println("Validated Report ID...")
@@ -69,7 +69,7 @@ func GetMtrData_SpecificTimeframe(syncbox string, startTime time.Time, endTime t
 	return mtrReports, syncboxStatus
 }
 
-func connectToSSH() *ssh.Client {
+func ConnectToSSH() *ssh.Client {
 	var conn *ssh.Client
 	var err error
 	config := &ssh.ClientConfig{
@@ -84,83 +84,22 @@ func connectToSSH() *ssh.Client {
 	conn, err = ssh.Dial("tcp", sshTargetHost, config)
 
 	if err != nil {
-		for i := 1; i < 4; i++ {
-			time.Sleep(time.Second * 5)
-			fmt.Println("Error connecting to SSH Server. Retry attempt", i, "...")
-			conn, err = ssh.Dial("tcp", sshTargetHost, config)
+		for i := 1; i <= 5; i++ {
 			if conn != nil {
+				fmt.Println("Retry", i, "Successful.")
 				break
+			} else {
+				time.Sleep(time.Second * 5)
+				fmt.Println("Error connecting to SSH Server. Retry attempt", i, "...")
+				conn, err = ssh.Dial("tcp", sshTargetHost, config)
 			}
 		}
-	} else {
-		fmt.Println("New connection made")
 	}
 	return conn
 }
 
-func GetBatchMtrData_SpecificTimeframe(syncboxes []string, startTime time.Time, endTime time.Time) []dataObjects.MtrReport {
-	var mtrReports []dataObjects.MtrReport
-	var unfilteredMtrReports []dataObjects.MtrReport
-	var reports []dataObjects.MtrReport
-	//Because of the directory structure on the server, a different command needs to be ran for each day involved
-	//This loop ensures that the command for every day involved in the search is parsed properly
-	for d := startTime; !d.After(endTime); d = d.AddDate(0, 0, 1) {
-
-		reports = GetBatchSyncboxMtrReports(syncboxes, d)
-
-		unfilteredMtrReports = append(unfilteredMtrReports, reports...)
-	}
-	//Filter all logs found down to only those between the search time parameters
-	for _, r := range unfilteredMtrReports {
-		if r.StartTime.After(startTime) && r.StartTime.Before(endTime) {
-			mtrReports = append(mtrReports, r)
-		}
-	}
-	//Get DB Reports within timeframe
-	//Print the reports
-	return mtrReports
-}
-
-func GetBatchSyncboxMtrReports(syncboxes []string, targetDate time.Time) []dataObjects.MtrReport {
-	var validatedMtrReports []dataObjects.MtrReport
-	var batchReports []dataObjects.MtrReport
-	conn := connectToSSH()
-
-	if conn != nil {
-		fmt.Println("Connected for Batch:", syncboxes)
-		defer conn.Close()
-		var syncboxStatus string
-		mtrLogFilenames, err := getBatchSyncboxLogFilenames(conn, syncboxes, targetDate)
-		if err != nil {
-
-		}
-		if len(mtrLogFilenames) > 0 {
-			rawMtrData := getBatchSyncboxMtrData(conn, syncboxes, targetDate)
-			fmt.Println("Got Log Data...", len(rawMtrData))
-			tempMtrReports := parseSshDataIntoMtrReport(rawMtrData)
-			fmt.Println("Parsed data into reports...", len(tempMtrReports))
-			validatedMtrReports = matchBatchMtrDataWithFilenames(mtrLogFilenames, tempMtrReports)
-			fmt.Println("Validated Report ID's... ", len(validatedMtrReports))
-			if len(validatedMtrReports) > 0 {
-				syncboxStatus = "Active"
-			} else {
-				syncboxStatus = "Firewall"
-			}
-			batchReports = append(batchReports, validatedMtrReports...)
-		} else {
-			syncboxStatus = "Inactive"
-		}
-
-		if syncboxStatus == "" {
-
-		}
-	}
-
-	return batchReports
-}
-
 // This sets up the ssh connection and runs the given command
-func runClientCommand(conn *ssh.Client, command string) (string, error) {
+func RunClientCommand(conn *ssh.Client, command string) (string, error) {
 	var buff bytes.Buffer
 	var err2 error
 	if conn != nil {
