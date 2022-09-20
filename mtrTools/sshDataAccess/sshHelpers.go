@@ -3,6 +3,7 @@ package sshDataAccess
 import (
 	"fmt"
 	"mtrTools/dataObjects"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -182,10 +183,10 @@ func ParseSshDataIntoMtrReport(rawData string) []dataObjects.MtrReport {
 
 							//Painful way of checking that fields are not null
 							if len(f) > 0 {
-
-								hn := f[0]
-								hn = strings.Replace(hn, ".", "", 1) // Why? random mtr's threw errors because the hop number (f[0]) only had a "." instead of ".|--"
-								hn = strings.Replace(hn, "|--", "", 1)
+								var nonAlphanumericRegex = regexp.MustCompile(`[^a-zA-z0-9 ]+`)
+								hn := nonAlphanumericRegex.ReplaceAllString(f[0], "")
+								// hn = strings.Replace(hn, ".", "", 1) // Why? random mtr's threw errors because the hop number (f[0]) only had a "." instead of ".|--"
+								// hn = strings.Replace(hn, "|--", "", 1)
 
 								hop.HopNumber = ParseStringToInt(hn)
 								if len(f) > 1 {

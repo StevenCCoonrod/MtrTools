@@ -109,11 +109,11 @@ func GetBatchSyncboxMtrReports(syncboxes []string, targetDate time.Time) []dataO
 		}
 		if len(mtrLogFilenames) > 0 {
 			rawMtrData := getBatchSyncboxMtrData(conn, syncboxes, targetDate)
-			// fmt.Println("Got Log Data...", len(rawMtrData))
+			fmt.Println("Got Log Data...", len(rawMtrData))
 			tempMtrReports := sshDataAccess.ParseSshDataIntoMtrReport(rawMtrData)
-			// fmt.Println("Parsed data into reports...", len(tempMtrReports))
+			fmt.Println("Parsed data into reports...", len(tempMtrReports))
 			validatedMtrReports = matchBatchMtrDataWithFilenames(mtrLogFilenames, tempMtrReports)
-			// fmt.Println("Validated Report ID's... ", len(validatedMtrReports))
+			fmt.Println("Validated Report ID's... ", len(validatedMtrReports))
 
 			batchReports = append(batchReports, validatedMtrReports...)
 		}

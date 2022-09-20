@@ -78,6 +78,7 @@ func ConnectToSSH() *ssh.Client {
 			ssh.Password(sshPassword),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         time.Second * 20,
 	}
 
 	// connect to ssh server
@@ -92,6 +93,9 @@ func ConnectToSSH() *ssh.Client {
 				time.Sleep(time.Second * 5)
 				fmt.Println("Error connecting to SSH Server. Retry attempt", i, "...")
 				conn, err = ssh.Dial("tcp", sshTargetHost, config)
+				if err != nil {
+					fmt.Println(err.Error())
+				}
 			}
 		}
 	}
