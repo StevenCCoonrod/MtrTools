@@ -21,7 +21,7 @@ type MtrHop struct {
 }
 
 type MtrReport struct {
-	ReportID   string    `json:"ReportID"`
+	ReportID   int       `json:"ReportID"`
 	SyncboxID  string    `json:"SyncboxID"`
 	StartTime  time.Time `json:"StartTime"`
 	DataCenter string    `json:"DataCenter"`
@@ -31,7 +31,7 @@ type MtrReport struct {
 // Prints out an Mtr Report with properly aligned fields
 func (rpt MtrReport) PrintReport() string {
 	reportString := ""
-	reportString += rpt.ReportID + "\n" +
+	reportString += fmt.Sprint(rpt.ReportID) + "\n" +
 		rpt.SyncboxID + "\n" +
 		fmt.Sprint(rpt.StartTime.Format(time.ANSIC)) + "\n" +
 		"Data Center: " + strings.ToUpper(rpt.DataCenter) + "\n"

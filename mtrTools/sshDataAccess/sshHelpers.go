@@ -88,47 +88,6 @@ func getSyncboxMtrData(conn *ssh.Client, syncbox string, targetDate time.Time) s
 	return dataReturned_2
 }
 
-// Compares a list of mtr filenames with a list of raw mtr data, and assigns matching filenames to the corresponding report's ID field
-func matchMtrDataWithFilenames(mtrLogFilenames []string, tempMtrReports []dataObjects.MtrReport) []dataObjects.MtrReport {
-	var validatedMtrReports []dataObjects.MtrReport
-
-	for _, l := range mtrLogFilenames {
-		if l != "" {
-			//Split each line on the "-" and parse the fields
-			f := strings.Split(l, "-")
-			dateYear := ParseStringToInt(f[2])
-			dateMonth := time.Month(ParseStringToInt(f[3]))
-			dateDay := ParseStringToInt(f[4])
-			dateHour := ParseStringToInt(f[5])
-			dateMinute := ParseStringToInt(f[6])
-			dataCenter := f[7]
-
-			//Parse this into a time.Time object
-			logFileDateTime := time.Date(dateYear, dateMonth, dateDay, dateHour, dateMinute, 0, 0, &time.Location{})
-
-			//Match the parsed datetime from the filename
-			//with the corresponding report in the mtr list
-			for _, r := range tempMtrReports {
-				id := strings.ReplaceAll(l, " ", "-")
-
-				if r.StartTime.Year() == logFileDateTime.Year() &&
-					r.StartTime.Month() == logFileDateTime.Month() &&
-					r.StartTime.Day() == logFileDateTime.Day() &&
-					r.StartTime.Hour() == logFileDateTime.Hour() &&
-					r.StartTime.Minute() == logFileDateTime.Minute() &&
-					r.DataCenter == dataCenter {
-					r.ReportID = id
-					validatedMtrReports = append(validatedMtrReports, r)
-					break
-				}
-
-			}
-		}
-
-	}
-	return validatedMtrReports
-}
-
 // Parses raw MTR data into a slice of MtrReports
 func ParseSshDataIntoMtrReport(rawData string) []dataObjects.MtrReport {
 

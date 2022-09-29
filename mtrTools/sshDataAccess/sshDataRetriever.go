@@ -13,7 +13,7 @@ import (
 
 // Gets ALL mtrs in a specified syncbox's directory for a specified date
 func GetSyncboxMtrReports(syncbox string, targetDate time.Time) ([]dataObjects.MtrReport, string) {
-	var validatedMtrReports []dataObjects.MtrReport
+	var mtrReports []dataObjects.MtrReport
 	syncboxStatus := ""
 	conn := ConnectToSSH()
 
@@ -25,15 +25,8 @@ func GetSyncboxMtrReports(syncbox string, targetDate time.Time) ([]dataObjects.M
 			rawMtrData := getSyncboxMtrData(conn, syncbox, targetDate)
 			//fmt.Println("Got Log Data...")
 			if len(rawMtrData) > 0 {
-				tempMtrReports := ParseSshDataIntoMtrReport(rawMtrData)
-				//fmt.Println("Parsed data into reports...")
-				validatedMtrReports = matchMtrDataWithFilenames(mtrLogFilenames, tempMtrReports)
-				//fmt.Println("Validated Report ID...")
-				if len(validatedMtrReports) > 0 {
-					syncboxStatus = "Active"
-				} else {
-					syncboxStatus = "Other"
-				}
+				mtrReports = ParseSshDataIntoMtrReport(rawMtrData)
+
 			} else {
 				syncboxStatus = "Firewall"
 			}
@@ -44,7 +37,7 @@ func GetSyncboxMtrReports(syncbox string, targetDate time.Time) ([]dataObjects.M
 		fmt.Println("Could not establish connection for " + syncbox)
 	}
 
-	return validatedMtrReports, syncboxStatus
+	return mtrReports, syncboxStatus
 }
 
 // Gets ALL mtrs in a specified syncbox's directory that have a start time between two specified datetimes

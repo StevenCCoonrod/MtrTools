@@ -26,7 +26,7 @@ GO
 
 CREATE TABLE [dbo].[MtrReport]
 (
-	[MtrReportID]		VARCHAR(50)		NOT NULL,
+	[MtrReportID]		INT				NOT NULL	IDENTITY(10000000,1),
 	[SyncboxID]			VARCHAR(15)		NOT NULL,
 	[StartTime]			DATETIME		NOT NULL,
 	[DataCenter]		VARCHAR(2),
@@ -42,7 +42,7 @@ GO
 CREATE TABLE [dbo].[MtrHop]
 (
 	[MtrHopID]			INT				NOT NULL	IDENTITY(100000000,1),
-	[MtrReportID]		VARCHAR(50)	NOT NULL,
+	[MtrReportID]		INT				NOT NULL,
 	[HopNumber]			TINYINT			NOT NULL,
 	[HostName]			VARCHAR(200) 	NOT NULL,
 	[PacketLoss]		DECIMAL			NOT NULL,
@@ -93,24 +93,24 @@ GO
 
 CREATE PROCEDURE [sp_InsertMtrReport]
 (
-	@MtrReportID		[VARCHAR](50),
 	@SyncboxID			[VARCHAR](15),
 	@StartTime			[DATETIME],
 	@DataCenter			[VARCHAR](2)
 )
 AS
-IF NOT EXISTS (SELECT MtrReportID FROM MtrReport WHERE MtrReportID = @MtrReportID)
+IF NOT EXISTS (SELECT MtrReportID FROM MtrReport WHERE SyncboxID = @SyncboxID AND StartTime = @StartTime AND DataCenter = @DataCenter)
 BEGIN
 	INSERT INTO [dbo].[MtrReport]
-		([MtrReportID],[SyncboxID],[StartTime],[DataCenter])
+		([SyncboxID],[StartTime],[DataCenter])
 	VALUES
-		(@MtrReportID, UPPER(@SyncboxID), @StartTime, @DataCenter)
+		(UPPER(@SyncboxID), @StartTime, @DataCenter)
+	SELECT SCOPE_IDENTITY()
 END
 GO
 
 CREATE PROCEDURE [sp_InsertMtrHop]
 (
-	@MtrReportID		[VARCHAR](50), 
+	@MtrReportID		INT, 
 	@HopNumber			TINYINT,
 	@HostName			VARCHAR(200),
 	@PacketLoss			DECIMAL,
@@ -173,18 +173,6 @@ BEGIN
 END
 GO
 
-CREATE PROCEDURE [sp_CheckIfMtrReportExists]
-(
-	@MtrReportID		VARCHAR(50)
-)
-AS
-BEGIN
-	SELECT 	[dbo].[MtrReport].[MtrReportID]
-	FROM	[dbo].[MtrReport]
-	WHERE 	[dbo].[MtrReport].[MtrReportID] = @MtrReportID
-END
-GO
-
 
 CREATE PROCEDURE [sp_SelectAllMtrs]
 AS
@@ -206,7 +194,7 @@ BEGIN
 	FROM	[dbo].[MtrReport]
 			INNER JOIN [dbo].[MtrHop]
 		ON	[dbo].[MtrReport].[MtrReportID] = [dbo].[MtrHop].[MtrReportID]
-	ORDER BY [MtrReportID]
+	ORDER BY [SyncboxID],[StartTime],[DataCenter],[HopNumber]
 END
 GO
 
@@ -237,7 +225,7 @@ BEGIN
 		ON	[dbo].[MtrReport].[MtrReportID] = [dbo].[MtrHop].[MtrReportID]
 	WHERE 	[MtrReport].[StartTime] >= @StartDatetime
 	AND		[MtrReport].[StartTime] <= @EndDatetime
-	ORDER BY [SyncboxID], [MtrReportID]
+	ORDER BY [SyncboxID],[StartTime],[DataCenter],[HopNumber]
 END
 GO
 
@@ -269,7 +257,7 @@ BEGIN
 	WHERE 	[SyncboxID] = @SyncboxID
 	AND		[MtrReport].[StartTime] >= @StartDatetime
 	AND		[MtrReport].[StartTime] <= @EndDatetime
-	ORDER BY [MtrReportID]
+	ORDER BY [StartTime],[DataCenter],[HopNumber]
 END
 GO
 
@@ -303,7 +291,7 @@ BEGIN
 	AND		[MtrReport].[StartTime] >= @StartDatetime
 	AND		[MtrReport].[StartTime] <= @EndDatetime
 	AND 	[MtrReport].[DataCenter] = @DataCenter
-	ORDER BY [MtrReportID],[MtrHopID]
+	ORDER BY [StartTime],[HopNumber]
 END
 GO
 
@@ -331,7 +319,7 @@ BEGIN
 			INNER JOIN [dbo].[MtrHop]
 		ON	[dbo].[MtrReport].[MtrReportID] = [dbo].[MtrHop].[MtrReportID]
 	WHERE 	[HostName] = @hostname
-	ORDER BY [MtrReportID]
+	ORDER BY [SyncboxID],[StartTime],[DataCenter],[HopNumber]
 END
 GO
 

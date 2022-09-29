@@ -56,11 +56,18 @@ func InsertMtrReports(mtrReports []dataObjects.MtrReport) int {
 		defer cancel()
 		defer db.Close()
 		//Insert the Report
-		_, err := db.ExecContext(ctx, "sp_InsertMtrReport", report.ReportID, report.SyncboxID, report.StartTime, report.DataCenter)
-
+		var reportID int
+		rowReturned := db.QueryRowContext(ctx, "sp_InsertMtrReport", report.SyncboxID, report.StartTime, report.DataCenter)
+		err := rowReturned.Scan(&reportID)
 		if err != nil {
-			fmt.Println("Error inserting report. ", err.Error())
-			successfulInsert = false
+			if strings.Contains(err.Error(), "no rows") {
+				//Already exists
+				successfulInsert = false
+			} else {
+				fmt.Println("Error inserting report. ", err.Error())
+				successfulInsert = false
+			}
+
 		} else {
 			reportsInserted += 1
 			successfulInsert = true
@@ -69,7 +76,7 @@ func InsertMtrReports(mtrReports []dataObjects.MtrReport) int {
 		if successfulInsert {
 			for _, h := range report.Hops {
 
-				_, err := db.ExecContext(ctx, "sp_InsertMtrHop", report.ReportID, h.HopNumber, h.Hostname,
+				_, err := db.ExecContext(ctx, "sp_InsertMtrHop", reportID, h.HopNumber, h.Hostname,
 					h.PacketLoss, h.PacketsSent, h.LastPing, h.AveragePing, h.BestPing, h.WorstPing, h.StdDev)
 
 				if err != nil {
@@ -235,9 +242,9 @@ func SelectMtrReports_ByHostname(hostname string) []dataObjects.MtrReport {
 // Parses an individual report from the DB into an MtrReport
 func parseSqlSingleReportDataIntoReport(sqlRowData *sql.Rows) dataObjects.MtrReport {
 
-	var reportID, syncboxID, dataCenter, hostName *string
+	var syncboxID, dataCenter, hostName *string
 	var startTime *time.Time
-	var hopID, hopNumber, packetsSent *int
+	var reportID, hopID, hopNumber, packetsSent *int
 	var packetLoss, last, avg, best, worst, stdDev *float32
 	var report dataObjects.MtrReport
 
@@ -271,9 +278,9 @@ func parseSqlSingleReportDataIntoReport(sqlRowData *sql.Rows) dataObjects.MtrRep
 // Parses multiple reports from the DB into MtrReports
 func parseSqlMultipleReportDataIntoReports(sqlRowData *sql.Rows) []dataObjects.MtrReport {
 	var reports []dataObjects.MtrReport
-	var reportID, syncboxID, dataCenter, hostName *string
+	var syncboxID, dataCenter, hostName *string
 	var startTime *time.Time
-	var hopID, hopNumber, packetsSent *int
+	var reportID, hopID, hopNumber, packetsSent *int
 	var packetLoss, last, avg, best, worst, stdDev *float32
 	var report dataObjects.MtrReport
 	for sqlRowData.Next() {
@@ -282,7 +289,7 @@ func parseSqlMultipleReportDataIntoReports(sqlRowData *sql.Rows) []dataObjects.M
 			fmt.Println(err.Error())
 		} else {
 			if *reportID != report.ReportID {
-				if report.ReportID != "" {
+				if report.ReportID > 0 {
 					reports = append(reports, report)
 				}
 
