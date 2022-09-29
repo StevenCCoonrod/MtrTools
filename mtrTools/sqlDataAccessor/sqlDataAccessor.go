@@ -11,7 +11,8 @@ import (
 	_ "github.com/denisenkom/go-mssqldb"
 )
 
-var server = "localhost"
+// var server = "localhost"
+var server = "ec2-54-204-1-34.compute-1.amazonaws.com"
 
 // var server = "localhost\\MSSQLSERVER02"
 
@@ -68,7 +69,7 @@ func InsertMtrReports(mtrReports []dataObjects.MtrReport) int {
 				successfulInsert = false
 			}
 
-		} else {
+		} else if reportID > 0 {
 			reportsInserted += 1
 			successfulInsert = true
 		}

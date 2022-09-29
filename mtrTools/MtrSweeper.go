@@ -20,49 +20,51 @@ import (
 
 // Retrieves ALL MTR logs for ALL syncboxes in the SyncboxList
 func fullMtrRetrievalCycle() {
+	for {
+		timeOfInitiation := time.Now().UTC()
+		fmt.Println("============ Initiating Full MTR Sweep ============")
+		fmt.Println("\nFull Sweep Initiated At", timeOfInitiation.Format(time.ANSIC))
 
-	timeOfInitiation := time.Now().UTC()
-	fmt.Println("============ Initiating Full MTR Sweep ============")
-	fmt.Println("\nFull Sweep Initiated At", timeOfInitiation.Format(time.ANSIC))
-
-	//Divide the list of Syncboxes to be iterated through into batches (a slice of string slices)
-	batchCount := 15
-	batches := make([][]string, len(_SyncboxList)/batchCount+1)
-	position := 0
-	for i, s := range _SyncboxList {
-		if i != 0 && i%batchCount == 0 {
-			position += 1
+		//Divide the list of Syncboxes to be iterated through into batches (a slice of string slices)
+		batchCount := 15
+		batches := make([][]string, len(_SyncboxList)/batchCount+1)
+		position := 0
+		for i, s := range _SyncboxList {
+			if i != 0 && i%batchCount == 0 {
+				position += 1
+			}
+			batches[position] = append(batches[position], s)
 		}
-		batches[position] = append(batches[position], s)
+
+		//Create a Waitgroup to sync channels.
+		//Waitgroup is added in each channel and set to Done in the Go Routine
+		var wg sync.WaitGroup
+		ch := make(chan []string)
+		//Make a channel for each batch, to send each batch through
+		go func() {
+			for _, b := range batches {
+				ch <- b
+			}
+			close(ch)
+		}()
+
+		//For each batch of syncboxes ran through the channel...
+		var batchNumber int
+		for batch := range ch {
+			wg.Add(1)
+			batchNumber += 1
+			fmt.Println("Working on batch "+fmt.Sprint(batchNumber)+":", batch[0], "-", batch[len(batch)-1])
+			go getBatchMtrData(&wg, batch, batchNumber, timeOfInitiation.Add(time.Hour*-1), timeOfInitiation)
+			//Sleep timer needed to space out connections and avoid errors
+			time.Sleep(time.Second * 2)
+		}
+
+		//Wait for all batches to be collected
+		wg.Wait()
+		fmt.Println("============ MTR Sweep Completed ============")
+		fmt.Println("Cycle Duration:", time.Since(timeOfInitiation))
 	}
 
-	//Create a Waitgroup to sync channels.
-	//Waitgroup is added in each channel and set to Done in the Go Routine
-	var wg sync.WaitGroup
-	ch := make(chan []string)
-	//Make a channel for each batch, to send each batch through
-	go func() {
-		for _, b := range batches {
-			ch <- b
-		}
-		close(ch)
-	}()
-
-	//For each batch of syncboxes ran through the channel...
-	var batchNumber int
-	for batch := range ch {
-		wg.Add(1)
-		batchNumber += 1
-		fmt.Println("Working on batch "+fmt.Sprint(batchNumber)+":", batch[0], "-", batch[len(batch)-1])
-		go getBatchMtrData(&wg, batch, batchNumber, timeOfInitiation.AddDate(0, 0, -1), timeOfInitiation)
-		//Sleep timer needed to space out connections and avoid errors
-		time.Sleep(time.Second * 5)
-	}
-
-	//Wait for all batches to be collected
-	wg.Wait()
-	fmt.Println("============ MTR Sweep Completed ============")
-	fmt.Println("Cycle Duration:", time.Since(timeOfInitiation))
 }
 
 // Currently being ran as a go routine inside a channel.
@@ -199,11 +201,8 @@ func insertMtrReportsIntoDB(mtrReports []dataObjects.MtrReport) int {
 		//Check if the Report already exists in the DB
 		reportsInsertedIntoDB = sqlDataAccessor.InsertMtrReports(mtrReports)
 
-		if reportsInsertedIntoDB > 0 == false {
-			fmt.Println("Error inserting reports.")
-		} else {
-			fmt.Println(reportsInsertedIntoDB, "reports inserted into the DB")
-		}
+		fmt.Println(reportsInsertedIntoDB, "reports inserted into the DB")
+
 	}
 	return reportsInsertedIntoDB
 }

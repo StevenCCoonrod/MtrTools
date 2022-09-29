@@ -146,6 +146,7 @@ BEGIN
 END
 GO
 
+
 CREATE PROCEDURE [sp_SelectMtrReportByID]
 (
 	@MtrReportID		VARCHAR(50)
@@ -198,6 +199,34 @@ BEGIN
 END
 GO
 
+CREATE PROCEDURE [sp_SelectAllReports_BySyncboxID]
+(
+	@SyncboxID		VARCHAR(12)
+)
+AS
+BEGIN
+	SELECT 	[dbo].[MtrReport].[MtrReportID],
+			[SyncboxID],
+			[StartTime],
+			[DataCenter],
+			[MtrHopID],
+			[HopNumber],
+			[HostName],
+			[PacketLoss],
+			[PacketsSent],
+			[LastPingMS],
+			[AvgPingMS],
+			[BestPingMS],
+			[WorstPingMS],
+			[StandardDev]
+	FROM	[dbo].[MtrReport]
+			INNER JOIN [dbo].[MtrHop]
+		ON	[dbo].[MtrReport].[MtrReportID] = [dbo].[MtrHop].[MtrReportID]
+		WHERE [dbo].[MtrReport].[SyncboxID] = @SyncboxID
+	ORDER BY [StartTime],[DataCenter],[HopNumber]
+		
+END
+GO
 
 CREATE PROCEDURE [sp_SelectAllMtrsWithinRange]
 (
