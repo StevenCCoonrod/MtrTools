@@ -53,8 +53,8 @@ func fullMtrRetrievalCycle() {
 		for batch := range ch {
 			wg.Add(1)
 			batchNumber += 1
-			fmt.Println("Working on batch "+fmt.Sprint(batchNumber)+":", batch[0], "-", batch[len(batch)-1])
-			go getBatchMtrData(&wg, batch, batchNumber, timeOfInitiation.Add(time.Hour*-1), timeOfInitiation)
+			fmt.Println("--> Working on batch "+fmt.Sprint(batchNumber)+":", batch[0], "-", batch[len(batch)-1])
+			go getBatchMtrData(&wg, batch, batchNumber, timeOfInitiation.Add(time.Minute*-30), timeOfInitiation)
 			//Sleep timer needed to space out connections and avoid errors
 			time.Sleep(time.Second * 2)
 		}
@@ -84,18 +84,19 @@ func getBatchMtrData(wg *sync.WaitGroup, syncboxes []string, batchNumber int, st
 	}
 
 	//Insert reports into the DB
-	fmt.Println("Inserting into DB for batch "+fmt.Sprint(batchNumber)+":", syncboxes[0], "-", syncboxes[len(syncboxes)-1])
-	insertMtrReportsIntoDB(batchReports)
+	fmt.Println("... Inserting into DB for batch "+fmt.Sprint(batchNumber)+":", syncboxes[0], "-", syncboxes[len(syncboxes)-1])
+	reportsInserted := insertMtrReportsIntoDB(batchReports)
 	wg.Done()
-	fmt.Println("BATCH "+fmt.Sprint(batchNumber)+":", syncboxes[0], "-", syncboxes[len(syncboxes)-1]+" COMPLETED")
+	fmt.Println("||| BATCH "+
+		fmt.Sprint(batchNumber)+":", syncboxes[0], "-", syncboxes[len(syncboxes)-1]+
+		" COMPLETED\t", reportsInserted, " new reports inserted.")
 	return batchReports
 }
 
-// Main assembler of the data collection. Establishes an SSH client and initiates the 4 step process
-//  1. Get the filenames of all the log files in each directory
-//  2. Pull all the data for every log file found in each directory
-//  3. Parse the data into MtrReport structs
-//  4. Match the parsed data with its corresponding filename and set it as the report's ID
+// Main assembler of the data collection. Establishes an SSH client and initiates the 3 step process
+//  1. Get the filenames of all the most recent logs in each Syncbox directory
+//  2. Retrieve all the data for every log file found in each directory
+//  3. Parse the data into MtrReport structs to be inserted into the DB
 func GetBatchSyncboxMtrReports(syncboxes []string, targetDate time.Time) []dataObjects.MtrReport {
 	var mtrReports []dataObjects.MtrReport
 	var batchReports []dataObjects.MtrReport
@@ -107,9 +108,9 @@ func GetBatchSyncboxMtrReports(syncboxes []string, targetDate time.Time) []dataO
 
 		if len(mtrLogFilenames) > 0 {
 			rawMtrData := getBatchSyncboxMtrData(conn, syncboxes, mtrLogFilenames, targetDate)
-			fmt.Println("Got Log Data...", len(rawMtrData))
+			// fmt.Println("Got Log Data...", len(rawMtrData))
 			mtrReports = sshDataAccess.ParseSshDataIntoMtrReport(rawMtrData)
-			fmt.Println("Parsed data into reports...", len(mtrReports))
+			// fmt.Println("Parsed data into reports...", len(mtrReports))
 
 			batchReports = append(batchReports, mtrReports...)
 		}
@@ -118,22 +119,29 @@ func GetBatchSyncboxMtrReports(syncboxes []string, targetDate time.Time) []dataO
 	return batchReports
 }
 
-// Step 1 in the MTR Data collection process. Retrieves the log file names found in each syncbox directory.
+// Step 1 in the MTR Data collection process.
+// Retrieves the most recently added log file names found in each syncbox directory.
 func getBatchSyncboxLogFilenames(conn *ssh.Client, syncboxes []string, targetDate time.Time) []string {
 	validMonth := sshDataAccess.ValidateDateField(fmt.Sprint(int32(targetDate.Month())))
 	validDay := sshDataAccess.ValidateDateField(fmt.Sprint(targetDate.Day()))
 	var command string
 	var dataReturned string
-
+	filesToRetrieve := 20
 	for _, s := range syncboxes {
 		command = "cd " + sshDataAccess.BaseDirectory +
 			fmt.Sprint(targetDate.Year()) + "/" +
 			validMonth + "/" +
-			validDay + "/" + strings.ToLower(s) + " && ls -t | head -20"
+			validDay + "/" + strings.ToLower(s) +
+			" && ls -t | head -" + fmt.Sprint(filesToRetrieve)
 		dataReturned_1, err := sshDataAccess.RunClientCommand(conn, command)
 		if err != nil {
-			fmt.Println(err.Error())
-		} else {
+			if strings.Contains(err.Error(), "Process exited with status 1") {
+				//No log files in directory. No issue.
+			} else {
+				fmt.Println(err.Error())
+			}
+		}
+		if len(dataReturned_1) > 0 {
 			dataReturned += dataReturned_1
 		}
 	}
@@ -141,24 +149,29 @@ func getBatchSyncboxLogFilenames(conn *ssh.Client, syncboxes []string, targetDat
 	return strings.Split(dataReturned, "\n")
 }
 
-// Step 2 in the MTR Data collection process. Retrieves all the data in each log file in each syncbox directory.
+// Step 2 in the MTR Data collection process.
+// Returns the log data for each log file found in the func getBatchSyncboxLogFilenames()
 func getBatchSyncboxMtrData(conn *ssh.Client, syncboxes []string, mtrLogFilenames []string, targetDate time.Time) string {
 	validMonth := sshDataAccess.ValidateDateField(fmt.Sprint(int32(targetDate.Month())))
 	validDay := sshDataAccess.ValidateDateField(fmt.Sprint(targetDate.Day()))
-	var dataReturned string
+	var batchDataString string
 
+	// Target each Syncbox directory in this batch, build and run a command for each log file provided
 	for _, s := range syncboxes {
 		var command string
-		var dataReturned_1 string
+		var dataReturned string
 		for _, l := range mtrLogFilenames {
 			var err error
-			command = "cat " + sshDataAccess.BaseDirectory +
-				fmt.Sprint(targetDate.Year()) + "/" +
-				validMonth + "/" +
-				validDay + "/" + strings.ToLower(s) + "/"
+			// Check that the filename contains the syncbox name so that only the data of log files for this box is returned
 			if strings.Contains(l, strings.ToLower(s)) {
+				// Build a command targeting this specific log file in the target Syncboxes directory
+				command = "cat " + sshDataAccess.BaseDirectory +
+					fmt.Sprint(targetDate.Year()) + "/" +
+					validMonth + "/" +
+					validDay + "/" + strings.ToLower(s) + "/"
 				command += l
-				dataReturned_1, err = runBatchMtrClientCommand(conn, command)
+				// Run the command
+				dataReturned, err = runBatchMtrClientCommand(conn, command)
 				if err != nil {
 					if strings.Contains(err.Error(), "Process exited with status 1") {
 						//Do nothing. This just means one of the Syncbox directories did not return any data
@@ -167,16 +180,17 @@ func getBatchSyncboxMtrData(conn *ssh.Client, syncboxes []string, mtrLogFilename
 						fmt.Println("Error running command on SSH Server.\n" + err.Error())
 					}
 				} else {
-					dataReturned += dataReturned_1
+					// Append the log data to the batch data string
+					batchDataString += dataReturned
 				}
 			}
 		}
 	}
 
-	return dataReturned
+	return batchDataString
 }
 
-// This takes an ssh connection and runs the given command, returning any data and errors
+// Uses an ssh connection and runs the given command, returning any data and errors
 func runBatchMtrClientCommand(conn *ssh.Client, command string) (string, error) {
 	var buff bytes.Buffer
 	var err2 error
@@ -194,14 +208,15 @@ func runBatchMtrClientCommand(conn *ssh.Client, command string) (string, error) 
 	return buff.String(), err2
 }
 
-// Takes a slice of MTR Reports, checks if each is already in the DB, if not it inserts it
+// Takes a slice of MTR Reports, checks if each is already in the DB, if not it inserts it.
+// Returns the count of new reports inserted into the DB
 func insertMtrReportsIntoDB(mtrReports []dataObjects.MtrReport) int {
 	var reportsInsertedIntoDB int
 	if len(mtrReports) > 0 {
-		//Check if the Report already exists in the DB
+		//Stored procedure makes the check for if the report already exists
 		reportsInsertedIntoDB = sqlDataAccessor.InsertMtrReports(mtrReports)
 
-		fmt.Println(reportsInsertedIntoDB, "reports inserted into the DB")
+		// fmt.Println(reportsInsertedIntoDB, "reports inserted into the DB")
 
 	}
 	return reportsInsertedIntoDB
