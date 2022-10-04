@@ -80,7 +80,6 @@ func InsertMtrReports(mtrReports []dataObjects.MtrReport) int {
 					}
 
 				} else if reportID != 0 {
-					fmt.Println("Inserted Report ID Returned: ", reportID)
 					//Insert hops for report
 					var successfulHopInsertion bool
 					for _, h := range report.Hops {
