@@ -37,12 +37,8 @@ var db *sql.DB
 
 // Inserts a Syncbox into the DB
 func InsertSyncbox(syncbox string) {
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	var err error
-	db, ctx := getDBConnection()
+	db, ctx := getDBConnectionWithContext()
 
 	dataReturned, err := db.QueryContext(ctx, "call sp_InsertSyncbox(?)", syncbox)
 	if err != nil {
@@ -55,11 +51,9 @@ func InsertSyncbox(syncbox string) {
 // Inserts an SSH MtrReport into the DB
 func InsertMtrReports(mtrReports []dataObjects.MtrReport) int {
 	reportsInserted := 0
-	var cancel context.CancelFunc
-	db, ctx := getDBConnection()
-	ctx.Done()
+	db := getDBConnection()
 	for _, report := range mtrReports {
-		ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		defer db.Close()
 		//Insert the Report
@@ -77,7 +71,6 @@ func InsertMtrReports(mtrReports []dataObjects.MtrReport) int {
 					}
 
 				} else if reportID != 0 {
-					// fmt.Println("Inserted Report ID Returned: ", reportID)
 					// Insert hops for report
 					var successfulHopInsertion bool
 					for _, h := range report.Hops {
@@ -113,7 +106,7 @@ func SelectAllSyncboxes() []string {
 	var syncboxList []string
 	var err error
 
-	db, ctx := getDBConnection()
+	db, ctx := getDBConnectionWithContext()
 
 	err1 := db.PingContext(ctx)
 	if err1 != nil {
@@ -138,39 +131,11 @@ func SelectAllSyncboxes() []string {
 	return syncboxList
 }
 
-// Takes a batch of MtrReports, Selects them from the DB, and parses them back into MtrReports
-// func SelectMtrReportsByID(reports []dataObjects.MtrReport) []dataObjects.MtrReport {
-
-// 	var dataReturned *sql.Rows
-// 	var reportsReturned []dataObjects.MtrReport
-// 	var err error
-// 	db, ctx := getDBConnection()
-
-// 	err1 := db.PingContext(ctx)
-// 	if err1 != nil {
-// 		fmt.Println(err.Error())
-// 	}
-// 	for _, r := range reports {
-
-// 		dataReturned, err = db.QueryContext(ctx, "call sp_SelectMtrReportByID(?)", r.ReportID)
-// 		if err != nil {
-// 			fmt.Println("Error selecting mtr report. ", err.Error())
-// 		} else {
-// 			parsedReport := parseSqlSingleReportDataIntoReport(dataReturned)
-// 			dataReturned.Close()
-// 			reportsReturned = append(reportsReturned, parsedReport)
-// 		}
-
-// 	}
-// 	db.Close()
-// 	return reportsReturned
-// }
-
 // Returns all DB Reports for a specified syncbox, between two datetimes
 func SelectMtrReports_BySyncbox_Timeframe(syncbox string, startTime time.Time, endTime time.Time) []dataObjects.MtrReport {
 
 	var err error
-	db, ctx := getDBConnection()
+	db, ctx := getDBConnectionWithContext()
 
 	err1 := db.PingContext(ctx)
 	if err1 != nil {
@@ -195,7 +160,7 @@ func SelectMtrReports_BySyncbox_Timeframe(syncbox string, startTime time.Time, e
 func SelectMtrReports_BySyncbox_DCAndTimeframe(syncbox string, startTime time.Time, endTime time.Time, datacenter string) []dataObjects.MtrReport {
 
 	var err error
-	db, ctx := getDBConnection()
+	db, ctx := getDBConnectionWithContext()
 
 	err1 := db.PingContext(ctx)
 	if err1 != nil {
@@ -220,15 +185,14 @@ func SelectMtrReports_ByHostname(hostname string) []dataObjects.MtrReport {
 	var err error
 	var dataReturned *sql.Rows
 	var reportsReturned []dataObjects.MtrReport
-
-	db, ctx := getDBConnection()
+	db, ctx := getDBConnectionWithContext()
 	defer db.Close()
 
 	dataReturned, err = db.QueryContext(ctx, "call sp_SelectAllMtrs_ByHostname(?)", hostname)
+
 	if err != nil {
 		fmt.Println("Error selecting reports by host name. ", err.Error())
 	}
-
 	reportsReturned = append(reportsReturned, parseDBReports(db, ctx, dataReturned)...)
 	return reportsReturned
 }
@@ -270,49 +234,13 @@ func SelectHopsForReports(db *sql.DB, ctx context.Context, reports []dataObjects
 
 //======================= HELPER METHODS =======================\\
 
-// Parses an individual report from the DB into an MtrReport
-// func parseSqlSingleReportDataIntoReport(sqlRowData *sql.Rows) dataObjects.MtrReport {
-
-// 	var syncboxID, dataCenter, hostName *string
-// 	var startTime *time.Time
-// 	var reportID, hopID, hopNumber, packetsSent *int
-// 	var packetLoss, last, avg, best, worst, stdDev *float32
-// 	var report dataObjects.MtrReport
-
-// 	for sqlRowData.Next() {
-// 		if err := sqlRowData.Scan(&reportID, &syncboxID, &startTime, &dataCenter, &hopID, &hopNumber,
-// 			&hostName, &packetLoss, &packetsSent, &last, &avg, &best, &worst, &stdDev); err != nil {
-// 			fmt.Println(err.Error())
-// 		} else {
-// 			if *reportID != report.ReportID {
-
-// 				report = dataObjects.MtrReport{ReportID: *reportID, SyncboxID: *syncboxID, StartTime: *startTime, DataCenter: *dataCenter}
-// 				hop := dataObjects.MtrHop{HopID: *hopID, HopNumber: *hopNumber, Hostname: *hostName,
-// 					PacketLoss: *packetLoss, PacketsSent: *packetsSent, LastPing: *last, AveragePing: *avg,
-// 					BestPing: *best, WorstPing: *worst, StdDev: *stdDev}
-// 				report.Hops = append(report.Hops, hop)
-// 			} else {
-// 				hop := dataObjects.MtrHop{HopID: *hopID, HopNumber: *hopNumber, Hostname: *hostName,
-// 					PacketLoss: *packetLoss, PacketsSent: *packetsSent, LastPing: *last, AveragePing: *avg,
-// 					BestPing: *best, WorstPing: *worst, StdDev: *stdDev}
-
-// 				report.Hops = append(report.Hops, hop)
-
-// 			}
-// 		}
-
-// 	}
-
-// 	return report
-// }
-
 // Parses multiple reports from the DB into MtrReports
 func parseDBReports(db *sql.DB, ctx context.Context, sqlRowData *sql.Rows) []dataObjects.MtrReport {
 	var reports []dataObjects.MtrReport
 	var syncboxID, dataCenter *string
 	var startTime *time.Time
 	var reportID *int
-
+	fmt.Println("Now we're parsin")
 	var report dataObjects.MtrReport
 	for sqlRowData.Next() {
 		if err := sqlRowData.Scan(&reportID, &syncboxID, &startTime, &dataCenter); err != nil {
@@ -323,13 +251,14 @@ func parseDBReports(db *sql.DB, ctx context.Context, sqlRowData *sql.Rows) []dat
 		}
 	}
 	sqlRowData.Close()
+	fmt.Println("Got reports, now their hops...")
 	reportsWithHops := SelectHopsForReports(db, ctx, reports)
 
 	return reportsWithHops
 }
 
 // Establishes DB connection and context
-func getDBConnection() (*sql.DB, context.Context) {
+func getDBConnectionWithContext() (*sql.DB, context.Context) {
 	var err error
 	// SQL Server
 	// connString := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%d;database=%s;",
@@ -350,4 +279,21 @@ func getDBConnection() (*sql.DB, context.Context) {
 	}
 
 	return db, ctx
+}
+
+// Establishes DB connection
+func getDBConnection() *sql.DB {
+	var err error
+	// SQL Server
+	// connString := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%d;database=%s;",
+	// 	server, user, password, port, database)
+	// MySQL
+	connString := fmt.Sprintf("%s:%s@(%s:%d)/%s?parseTime=true", user, password, server, port, database)
+
+	db, err = sql.Open("mysql", connString)
+	if err != nil {
+		fmt.Println("Error creating connection pool. \n" + err.Error())
+	}
+
+	return db
 }

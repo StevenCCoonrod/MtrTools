@@ -129,6 +129,16 @@ func IsFlagPassed(name string) bool {
 	return found
 }
 
+func removeSliceElement(s []string, i int) []string {
+	if i >= len(s) || i < 0 {
+		return nil
+	}
+	var newSlice []string
+	newSlice = s[:i]
+	newSlice = append(newSlice, s[i+1:]...)
+	return newSlice
+}
+
 // *********************** CONSOLE DISPLAY FUNCTIONS ************************** \\
 
 // Displays program details to console
@@ -219,11 +229,13 @@ func getHostnameReport(hostname string) {
 			distinctDC = append(distinctDC, r.DataCenter)
 		}
 		for _, h := range r.Hops {
-			loss += h.PacketLoss
+			if h.Hostname == hostname {
+				loss += h.PacketLoss
+			}
 		}
 	}
 	fmt.Println("Reports with host hop:", len(reportsReturned))
-	averageLoss := loss / float32(len(reportsReturned))
+	averageLoss := (loss / float32(len(reportsReturned)))
 	fmt.Print("Destination Data Centers: ")
 	for _, d := range distinctDC {
 		fmt.Print(strings.ToUpper(d) + " ")

@@ -72,16 +72,23 @@ func fullMtrRetrievalCycle() {
 // Updates the Syncboxes in the DB if any new ones are found in the SSH directory
 func updateSyncboxList() {
 	fmt.Println("Updating syncbox list...")
-	var sshSyncboxList []string
+	var updatedList []string
 	dbSyncboxList := sqlDataAccessor.SelectAllSyncboxes()
-	sshSyncboxList = sshDataAccess.GetSyncboxList()
-	if len(sshSyncboxList) != 0 && len(dbSyncboxList) != len(sshSyncboxList) {
-		//If the DB list doesn't contain the ssh syncbox, insert it into the DB
-		for _, s := range sshSyncboxList {
-			if !slices.Contains(dbSyncboxList, strings.ToUpper(s)) {
-				sqlDataAccessor.InsertSyncbox(s)
-			}
+	sshSyncboxList := sshDataAccess.GetSyncboxList()
+
+	for _, s := range sshSyncboxList {
+		if !slices.Contains(dbSyncboxList, strings.ToUpper(s)) {
+			sqlDataAccessor.InsertSyncbox(s)
 		}
+	}
+	dbSyncboxList = sqlDataAccessor.SelectAllSyncboxes()
+	for i, s := range dbSyncboxList {
+		if !slices.Contains(sshSyncboxList, strings.ToLower(s)) {
+			updatedList = removeSliceElement(dbSyncboxList, i)
+		}
+	}
+	if updatedList != nil {
+		_SyncboxList = updatedList
 	}
 }
 
@@ -103,6 +110,7 @@ func getBatchMtrData(wg *sync.WaitGroup, syncboxes []string, batchNumber int, st
 
 	//Insert reports into the DB
 	fmt.Println("... Inserting into DB for batch "+fmt.Sprint(batchNumber)+":", syncboxes[0], "-", syncboxes[len(syncboxes)-1])
+
 	reportsInserted := insertMtrReportsIntoDB(batchReports)
 	wg.Done()
 	fmt.Println("||| BATCH "+

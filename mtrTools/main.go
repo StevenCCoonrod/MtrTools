@@ -51,6 +51,7 @@ func main() {
 		}
 	} else {
 		//No Flags/Args provided
+		updateSyncboxList()
 		programDisplay()
 	}
 }
