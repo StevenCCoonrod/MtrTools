@@ -27,8 +27,8 @@ var server = "dashboard-qa-20190305.cunftndptrif.us-east-1.rds.amazonaws.com"
 // MySql
 var port = 3306
 
-var user = "strmdashdb"
-var password = "Syncbak01!"
+var user = ""
+var password = ""
 var database = "NetopsToolsDB"
 
 var db *sql.DB
@@ -57,8 +57,9 @@ func InsertMtrReports(mtrReports []dataObjects.MtrReport) int {
 	reportsInserted := 0
 	var cancel context.CancelFunc
 	db, ctx := getDBConnection()
+	ctx.Done()
 	for _, report := range mtrReports {
-		ctx, cancel = context.WithTimeout(context.Background(), 15*time.Second)
+		ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		defer db.Close()
 		//Insert the Report

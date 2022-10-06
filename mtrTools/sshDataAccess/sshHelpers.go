@@ -11,8 +11,8 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-var sshUser string = "stevec"
-var sshPassword string = "3brahman3"
+var sshUser string = ""
+var sshPassword string = ""
 var sshTargetHost string = "master.syncbak.com:22"
 var BaseDirectory string = "/var/log/syncbak/catcher-mtrs/"
 
