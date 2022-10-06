@@ -3,32 +3,37 @@ package sshDataAccess
 import (
 	"fmt"
 	"mtrTools/dataObjects"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/ssh"
 )
 
 var sshUser string = ""
 var sshPassword string = ""
-var sshTargetHost string = "master3.syncbak.com:22"
-var baseDirectory string = "/var/log/syncbak/catcher-mtrs/"
+var sshTargetHost string = "master.syncbak.com:22"
+var BaseDirectory string = "/var/log/syncbak/catcher-mtrs/"
 
 // Retrieves a list of syncboxes from the current day's mtr directory
 func GetSyncboxList() []string {
 
 	date := time.Now()
-	validMonth := validateDateField(fmt.Sprint(int32(date.Month())))
-	validDay := validateDateField(fmt.Sprint(date.Day()))
+	validMonth := ValidateDateField(fmt.Sprint(int32(date.Month())))
+	validDay := ValidateDateField(fmt.Sprint(date.Day()))
 	var syncboxList []string
 
-	command := "ls " + baseDirectory +
+	command := "ls " + BaseDirectory +
 		fmt.Sprint(date.Year()) + "/" +
 		validMonth + "/" + validDay + "/"
 
-	data, err := runClientCommand(command)
+	conn := ConnectToSSH()
+	data, err := RunClientCommand(conn, command)
 	if err != nil {
 		fmt.Println(err)
 	}
+	defer conn.Close()
 
 	tempSyncboxList := strings.Split(data, "\n")
 	for _, s := range tempSyncboxList {
@@ -41,16 +46,16 @@ func GetSyncboxList() []string {
 }
 
 // Gets the FILE NAMES of ALL logs in the specified date and syncbox directory
-func getSyncboxLogFilenames(syncbox string, targetDate time.Time) []string {
-	validMonth := validateDateField(fmt.Sprint(int32(targetDate.Month())))
-	validDay := validateDateField(fmt.Sprint(targetDate.Day()))
+func getSyncboxLogFilenames(conn *ssh.Client, syncbox string, targetDate time.Time) []string {
+	validMonth := ValidateDateField(fmt.Sprint(int32(targetDate.Month())))
+	validDay := ValidateDateField(fmt.Sprint(targetDate.Day()))
 
-	command1 := "ls " + baseDirectory +
+	command1 := "ls " + BaseDirectory +
 		fmt.Sprint(targetDate.Year()) + "/" +
 		validMonth + "/" +
 		validDay + "/" +
 		syncbox + "/"
-	dataReturned_1, err := runClientCommand(command1)
+	dataReturned_1, err := RunClientCommand(conn, command1)
 	if err != nil {
 		if strings.Contains(err.Error(), "Process exited with status 1") {
 			fmt.Println("No log files found in the " + syncbox + " directory.")
@@ -62,17 +67,17 @@ func getSyncboxLogFilenames(syncbox string, targetDate time.Time) []string {
 }
 
 // Gets the LOG FILE DATA of ALL logs in the specified date and syncbox directory
-func getSyncboxMtrData(syncbox string, targetDate time.Time) string {
-	validMonth := validateDateField(fmt.Sprint(int32(targetDate.Month())))
-	validDay := validateDateField(fmt.Sprint(targetDate.Day()))
+func getSyncboxMtrData(conn *ssh.Client, syncbox string, targetDate time.Time) string {
+	validMonth := ValidateDateField(fmt.Sprint(int32(targetDate.Month())))
+	validDay := ValidateDateField(fmt.Sprint(targetDate.Day()))
 
-	command2 := "cat " + baseDirectory +
+	command2 := "cat " + BaseDirectory +
 		fmt.Sprint(targetDate.Year()) + "/" +
 		validMonth + "/" +
 		validDay + "/" +
 		syncbox + "/" + "*.log"
 
-	dataReturned_2, err := runClientCommand(command2)
+	dataReturned_2, err := RunClientCommand(conn, command2)
 	if err != nil {
 		if strings.Contains(err.Error(), "Process exited with status 1") {
 			fmt.Println("Error retrieving log data in the " + syncbox + " directory.")
@@ -83,48 +88,8 @@ func getSyncboxMtrData(syncbox string, targetDate time.Time) string {
 	return dataReturned_2
 }
 
-// Compares a list of mtr filenames with a list of raw mtr data, and assigns matching filenames to the corresponding report's ID field
-func matchMtrDataWithFilenames(mtrLogFilenames []string, tempMtrReports []dataObjects.MtrReport) []dataObjects.MtrReport {
-	var validatedMtrReports []dataObjects.MtrReport
-	for _, l := range mtrLogFilenames {
-		if l != "" {
-			//Split each line on the "-" and parse the fields
-			f := strings.Split(l, "-")
-			dateYear := ParseStringToInt(f[2])
-			dateMonth := time.Month(ParseStringToInt(f[3]))
-			dateDay := ParseStringToInt(f[4])
-			dateHour := ParseStringToInt(f[5])
-			dateMinute := ParseStringToInt(f[6])
-			dataCenter := f[7]
-
-			//Parse this into a time.Time object
-			logFileDateTime := time.Date(dateYear, dateMonth, dateDay, dateHour, dateMinute, 0, 0, &time.Location{})
-
-			//Match the parsed datetime from the filename
-			//with the corresponding report in the mtr list
-			for _, r := range tempMtrReports {
-				id := strings.ReplaceAll(l, " ", "-")
-
-				if r.StartTime.Year() == logFileDateTime.Year() &&
-					r.StartTime.Month() == logFileDateTime.Month() &&
-					r.StartTime.Day() == logFileDateTime.Day() &&
-					r.StartTime.Hour() == logFileDateTime.Hour() &&
-					r.StartTime.Minute() == logFileDateTime.Minute() &&
-					r.DataCenter == dataCenter {
-					r.ReportID = id
-					validatedMtrReports = append(validatedMtrReports, r)
-					break
-				}
-
-			}
-		}
-
-	}
-	return validatedMtrReports
-}
-
 // Parses raw MTR data into a slice of MtrReports
-func parseSshDataIntoMtrReport(rawData string) []dataObjects.MtrReport {
+func ParseSshDataIntoMtrReport(rawData string) []dataObjects.MtrReport {
 
 	//Create the Report array to hold all the retrieved mtr Reports
 	var mtrReports []dataObjects.MtrReport
@@ -138,7 +103,7 @@ func parseSshDataIntoMtrReport(rawData string) []dataObjects.MtrReport {
 		//Loop through each raw report string and parse into an MtrReport object
 		for _, m := range rawMtrData {
 
-			if m != "" && !strings.Contains(m, "<!") {
+			if m != "" && !strings.Contains(m, "<") {
 				//Create new mtrReport
 				mtrReport := dataObjects.MtrReport{}
 				//Split data into lines
@@ -146,21 +111,27 @@ func parseSshDataIntoMtrReport(rawData string) []dataObjects.MtrReport {
 				//Iterate through each line in the data
 				for i, l := range lines {
 
-					//fmt.Println(l)
-
 					//If its the first line, parse the StartTime datetime
 					if i == 0 {
 						p := strings.TrimSpace(l)
+
 						startTime, err := time.Parse(time.ANSIC, p)
 						if err != nil {
 							fmt.Println("There was a problem parsing the mtr data.\n" + m + "\n" + err.Error())
+						} else {
+							mtrReport.StartTime = startTime
 						}
-						mtrReport.StartTime = startTime
+
 						//If its the second line, remove everything that isn't the Syncbox ID
 					} else if i == 1 {
 						s := strings.Replace(l, "HOST: ", "", 1)
-						s = strings.Split(s, ".")[0]
-						mtrReport.SyncboxID = s
+						if strings.Contains(s, ".") {
+							s = strings.Split(s, ".")[0]
+						} else {
+							s = strings.Split(s, " ")[0]
+						}
+
+						mtrReport.SyncboxID = strings.ToLower(s)
 						//Otherwise, each line is a hop in the traceroute
 					} else {
 						if l != "" {
@@ -171,9 +142,10 @@ func parseSshDataIntoMtrReport(rawData string) []dataObjects.MtrReport {
 
 							//Painful way of checking that fields are not null
 							if len(f) > 0 {
-								hn := f[0]
-								hn = strings.Replace(hn, ".", "", 1) // Why? random mtr's threw errors because the hop number (f[0]) only had a "." instead of ".|--"
-								hn = strings.Replace(hn, "|--", "", 1)
+								var nonAlphanumericRegex = regexp.MustCompile(`[^a-zA-z0-9 ]+`)
+								hn := nonAlphanumericRegex.ReplaceAllString(f[0], "")
+								// hn = strings.Replace(hn, ".", "", 1) // Why? random mtr's threw errors because the hop number (f[0]) only had a "." instead of ".|--"
+								// hn = strings.Replace(hn, "|--", "", 1)
 
 								hop.HopNumber = ParseStringToInt(hn)
 								if len(f) > 1 {
@@ -231,7 +203,7 @@ func parseSshDataIntoMtrReport(rawData string) []dataObjects.MtrReport {
 }
 
 // Helper method to provide valid date fields for mtr directories ("07" instead of "7")
-func validateDateField(dateField string) string {
+func ValidateDateField(dateField string) string {
 	if len(dateField) == 1 {
 		dateField = "0" + dateField
 	}
