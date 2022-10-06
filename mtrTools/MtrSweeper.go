@@ -11,17 +11,19 @@ import (
 	"time"
 
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/exp/slices"
 )
 
 //This .go file holds the majority of code involved in the primary Mtr Data Collection Process.
 //It retrieves all MTR data from the specified Server via SSH,
-//Iterating through the directories of every syncbox for the past 24 hours,
+//Iterating through the directories of every syncbox for the most recently added files,
 //Parsing the data collected, and inserting it into the target Database
 
 // Retrieves ALL MTR logs for ALL syncboxes in the SyncboxList
 func fullMtrRetrievalCycle() {
 	for {
-		timeOfInitiation := time.Now().UTC()
+		updateSyncboxList()
+		timeOfInitiation := time.Now()
 		fmt.Println("============ Initiating Full MTR Sweep ============")
 		fmt.Println("\nFull Sweep Initiated At", timeOfInitiation.Format(time.ANSIC))
 
@@ -65,6 +67,22 @@ func fullMtrRetrievalCycle() {
 		fmt.Println("Cycle Duration:", time.Since(timeOfInitiation))
 	}
 
+}
+
+// Updates the Syncboxes in the DB if any new ones are found in the SSH directory
+func updateSyncboxList() {
+	fmt.Println("Updating syncbox list...")
+	var sshSyncboxList []string
+	dbSyncboxList := sqlDataAccessor.SelectAllSyncboxes()
+	sshSyncboxList = sshDataAccess.GetSyncboxList()
+	if len(sshSyncboxList) != 0 && len(dbSyncboxList) != len(sshSyncboxList) {
+		//If the DB list doesn't contain the ssh syncbox, insert it into the DB
+		for _, s := range sshSyncboxList {
+			if !slices.Contains(dbSyncboxList, strings.ToUpper(s)) {
+				sqlDataAccessor.InsertSyncbox(s)
+			}
+		}
+	}
 }
 
 // Currently being ran as a go routine inside a channel.

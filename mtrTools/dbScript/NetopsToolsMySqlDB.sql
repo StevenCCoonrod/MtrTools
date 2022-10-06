@@ -155,6 +155,45 @@ BEGIN
 END//
 DELIMITER ;
 
+
+DROP PROCEDURE IF EXISTS `NetopsToolsDB`.`sp_SelectAllMtrs`;
+DELIMITER //
+CREATE DEFINER=`strmdashdb`@`%` PROCEDURE `NetopsToolsDB`.`sp_SelectAllMtrs`()
+BEGIN
+	SELECT 	NetopsToolsDB.MtrReport.MtrReportID,
+			NetopsToolsDB.MtrReport.SyncboxID,
+			NetopsToolsDB.MtrReport.StartTime,
+			NetopsToolsDB.MtrReport.DataCenter
+	FROM	NetopsToolsDB.MtrReport 
+	ORDER BY SyncboxID, StartTime, DataCenter;
+END//
+DELIMITER ;
+
+
+DROP PROCEDURE IF EXISTS `NetopsToolsDB`.`sp_SelectAllHops_ByReportID`;
+DELIMITER //
+CREATE DEFINER=`strmdashdb`@`%` PROCEDURE `NetopsToolsDB`.`sp_SelectAllHops_ByReportID`
+(
+	IN		report_id		INT
+)
+BEGIN
+	SELECT 	NetopsToolsDB.MtrHop.MtrHopID,
+			NetopsToolsDB.MtrHop.HopNumber,
+			NetopsToolsDB.MtrHop.HostName,
+			NetopsToolsDB.MtrHop.PacketLoss,
+			NetopsToolsDB.MtrHop.PacketsSent,
+			NetopsToolsDB.MtrHop.LastPingMS,
+			NetopsToolsDB.MtrHop.AvgPingMS,
+			NetopsToolsDB.MtrHop.BestPingMS,
+			NetopsToolsDB.MtrHop.WorstPingMS,
+			NetopsToolsDB.MtrHop.StandardDev
+	FROM	NetopsToolsDB.MtrHop
+	WHERE	ReportID = report_id
+	ORDER BY HopNumber;
+END//
+DELIMITER ;
+
+
 DROP PROCEDURE IF EXISTS `NetopsToolsDB`.`sp_SelectAllMtrs_BySyncbox`;
 DELIMITER //
 CREATE DEFINER=`strmdashdb`@`%` PROCEDURE `NetopsToolsDB`.`sp_SelectAllMtrs_BySyncbox`(
@@ -168,20 +207,6 @@ BEGIN
 	FROM	NetopsToolsDB.MtrReport 
 	WHERE 	SyncboxID = UPPER(syncbox_id)
 	ORDER BY StartTime, DataCenter;
-END//
-DELIMITER ;
-
-
-DROP PROCEDURE IF EXISTS `NetopsToolsDB`.`sp_SelectAllMtrs`;
-DELIMITER //
-CREATE DEFINER=`strmdashdb`@`%` PROCEDURE `NetopsToolsDB`.`sp_SelectAllMtrs`()
-BEGIN
-	SELECT 	NetopsToolsDB.MtrReport.MtrReportID,
-			NetopsToolsDB.MtrReport.SyncboxID,
-			NetopsToolsDB.MtrReport.StartTime,
-			NetopsToolsDB.MtrReport.DataCenter
-	FROM	NetopsToolsDB.MtrReport 
-	ORDER BY SyncboxID, StartTime, DataCenter;
 END//
 DELIMITER ;
 
@@ -262,17 +287,7 @@ BEGIN
 	SELECT 	MtrReport.MtrReportID,
 			SyncboxID,
 			StartTime,
-			DataCenter,
-			MtrHopID,
-			HopNumber,
-			HostName,
-			PacketLoss,
-			PacketsSent,
-			LastPingMS,
-			AvgPingMS,
-			BestPingMS,
-			WorstPingMS,
-			StandardDev
+			DataCenter
 	FROM	MtrReport INNER JOIN MtrHop
 		ON	MtrReport.MtrReportID = MtrHop.MtrReportID
 	WHERE 	HostName = _hostname

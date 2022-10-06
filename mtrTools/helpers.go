@@ -3,9 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
+	"mtrTools/dataObjects"
+	"mtrTools/sqlDataAccessor"
 	"strings"
 	"time"
 
+	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 )
 
@@ -67,27 +70,6 @@ func processSyncboxArgs(syncboxArgs []string) []string {
 	return syncboxes
 }
 
-// Displays program details to console
-func programDisplay() {
-	fmt.Print("\n===============================================")
-	fmt.Print(" Mtr Tools ")
-	fmt.Println("===============================================")
-	fmt.Println("Flags:")
-	fmt.Println("\t-a\tRuns a sweep of ALL Syncboxes")
-	fmt.Println("\t-start\tSpecifies a target search start time. Eg. 5h30m = 5 hours and 30 minutes ago")
-	fmt.Println("\t-end\tSpecifies a target search end time. Eg. 0m = now, 0 minutes ago")
-	fmt.Println("\t-p\tPrints results to the command line")
-	fmt.Println("\t-pf\tPrint the results to a text file")
-	fmt.Println("Syncboxes:", len(_SyncboxList))
-	for i, s := range _SyncboxList {
-		if i%7 == 0 {
-			fmt.Print("\n" + s)
-		} else {
-			fmt.Print("\t" + s)
-		}
-	}
-}
-
 // Helper function to validate a timeframe
 func validateTimeframe(startTime time.Duration, endTime time.Duration) bool {
 	// Check for valid start and end times
@@ -145,4 +127,110 @@ func IsFlagPassed(name string) bool {
 		}
 	})
 	return found
+}
+
+// *********************** CONSOLE DISPLAY FUNCTIONS ************************** \\
+
+// Displays program details to console
+func programDisplay() {
+	fmt.Print("\n===============================================")
+	fmt.Print(" Mtr Tools ")
+	fmt.Println("===============================================")
+	fmt.Println("Flags:")
+	fmt.Println("\t-a\tRuns a sweep of ALL Syncboxes")
+	fmt.Println("\t-start\tSpecifies a target search start time. Eg. 5h30m = 5 hours and 30 minutes ago")
+	fmt.Println("\t-end\tSpecifies a target search end time. Eg. 0m = now, 0 minutes ago")
+	fmt.Println("\t-p\tPrints results to the command line")
+	fmt.Println("\t-pf\tPrint the results to a text file")
+	fmt.Println("Syncboxes:", len(_SyncboxList))
+	for i, s := range _SyncboxList {
+		if i%7 == 0 {
+			fmt.Print("\n" + s)
+		} else {
+			fmt.Print("\t" + s)
+		}
+	}
+}
+
+func display_TimeframeSearch_Header(searchStartTime time.Time, start time.Time, end time.Time, DCFilter string) {
+	fmt.Println("Start Time:\t" + fmt.Sprint(start.Format(time.ANSIC)) +
+		"\nEnd Time:\t" + fmt.Sprint(end.Format(time.ANSIC)))
+	if IsFlagPassed("dc") {
+		fmt.Println("Data Center:\t" + strings.ToUpper(DCFilter))
+	}
+}
+
+// Displays a report based on the Mtr search performed
+func searchReport(mtrReports []dataObjects.MtrReport) {
+
+	m := make(map[string]int)
+	longestHostname := ""
+	for _, r := range mtrReports {
+		for _, h := range r.Hops {
+			hostname := h.Hostname
+			if !strings.Contains(hostname, "???") {
+				if !slices.Contains(maps.Keys(m), hostname) {
+					m[hostname] = 1
+				} else {
+					m[hostname] = m[hostname] + 1
+				}
+				if len(hostname) > len(longestHostname) {
+					longestHostname = hostname
+				}
+			}
+
+		}
+	}
+
+	fmt.Println("************************ Search Results ************************")
+	fmt.Println("Total Reports:", len(mtrReports))
+	fmt.Println("Distinct Hosts:", len(m))
+	fmt.Print("HOST")
+	for i := 0; i <= len(longestHostname); i++ {
+		fmt.Print(" ")
+	}
+	fmt.Print("# of reports hitting host")
+	fmt.Println("\tPercentage of Reports hitting hop")
+
+	for key, value := range m {
+		hostFillSpace := len(longestHostname) - len(key)
+		fmt.Print(key)
+		for i := 0; i <= hostFillSpace; i++ {
+			fmt.Print(" ")
+		}
+		fmt.Print("\t", value)
+		percentage := (float32(value) / float32(len(mtrReports)) * 100)
+		fmt.Println("\t\t\t\t\t", fmt.Sprintf("%.2f", percentage))
+	}
+}
+
+// Retrieves data based on host name
+func getHostnameReport(hostname string) {
+	reportsReturned := sqlDataAccessor.SelectMtrReports_ByHostname(hostname)
+	var distinctBoxes []string
+	var distinctDC []string
+	var loss float32
+	// Get distinct Syncboxes and target Data Centers, calculate average packet loss
+	for _, r := range reportsReturned {
+		if !slices.Contains(distinctBoxes, r.SyncboxID) {
+			distinctBoxes = append(distinctBoxes, r.SyncboxID)
+		}
+		if !slices.Contains(distinctDC, r.DataCenter) {
+			distinctDC = append(distinctDC, r.DataCenter)
+		}
+		for _, h := range r.Hops {
+			loss += h.PacketLoss
+		}
+	}
+	fmt.Println("Reports with host hop:", len(reportsReturned))
+	averageLoss := loss / float32(len(reportsReturned))
+	fmt.Print("Destination Data Centers: ")
+	for _, d := range distinctDC {
+		fmt.Print(strings.ToUpper(d) + " ")
+	}
+	fmt.Println("\nAverage Loss:", averageLoss)
+	fmt.Println("Syncboxes routing through host hop:")
+	for _, s := range distinctBoxes {
+		fmt.Println("\t", s)
+	}
 }

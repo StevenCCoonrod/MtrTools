@@ -8,7 +8,7 @@ import (
 
 type MtrHop struct {
 	HopID       int     `json:"HopID"`
-	ReportID    string  `json:"ReportID"`
+	ReportID    int     `json:"ReportID"`
 	HopNumber   int     `json:"HopNumber"`
 	Hostname    string  `json:"Hostname"`
 	PacketLoss  float32 `json:"PacketLoss"`
