@@ -25,6 +25,7 @@ type MtrReport struct {
 	SyncboxID  string    `json:"SyncboxID"`
 	StartTime  time.Time `json:"StartTime"`
 	DataCenter string    `json:"DataCenter"`
+	Success    bool      `json:"Success"`
 	Hops       []MtrHop  `json:"Hops"`
 }
 

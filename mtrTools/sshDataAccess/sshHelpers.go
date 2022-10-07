@@ -11,8 +11,8 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-var sshUser string = ""
-var sshPassword string = ""
+var sshUser string = "stevec"
+var sshPassword string = "3brahman3"
 var sshTargetHost string = "master.syncbak.com:22"
 var BaseDirectory string = "/var/log/syncbak/catcher-mtrs/"
 
@@ -22,7 +22,7 @@ func GetSyncboxList() []string {
 	date := time.Now()
 	validMonth := ValidateDateField(fmt.Sprint(int32(date.Month())))
 	validDay := ValidateDateField(fmt.Sprint(date.Day()))
-	var syncboxList []string
+	//var syncboxList []string
 
 	command := "ls " + BaseDirectory +
 		fmt.Sprint(date.Year()) + "/" +
@@ -36,13 +36,13 @@ func GetSyncboxList() []string {
 	defer conn.Close()
 
 	tempSyncboxList := strings.Split(data, "\n")
-	for _, s := range tempSyncboxList {
-		if strings.Contains(s, "-2309") {
-			syncboxList = append(syncboxList, s)
-		}
-	}
-
-	return syncboxList
+	// for _, s := range tempSyncboxList {
+	// 	if strings.Contains(s, "-2309") {
+	// 		syncboxList = append(syncboxList, s)
+	// 	}
+	// }
+	return tempSyncboxList
+	//return syncboxList
 }
 
 // Gets the FILE NAMES of ALL logs in the specified date and syncbox directory
@@ -89,7 +89,7 @@ func getSyncboxMtrData(conn *ssh.Client, syncbox string, targetDate time.Time) s
 }
 
 // Parses raw MTR data into a slice of MtrReports
-func ParseSshDataIntoMtrReport(rawData string) []dataObjects.MtrReport {
+func ParseSshDataIntoMtrReport(rawData string, targetDCs []string) []dataObjects.MtrReport {
 
 	//Create the Report array to hold all the retrieved mtr Reports
 	var mtrReports []dataObjects.MtrReport
@@ -99,10 +99,14 @@ func ParseSshDataIntoMtrReport(rawData string) []dataObjects.MtrReport {
 	if len(rawMtrData) > 1 {
 		//At this point, the full data string should be split back into
 		//strings containing the data for each individual log file
-
+		var currentReportsTargetDC string
 		//Loop through each raw report string and parse into an MtrReport object
-		for _, m := range rawMtrData {
+		for i, m := range rawMtrData {
+			if i < len(targetDCs) {
+				currentReportsTargetDC = targetDCs[i]
+			}
 
+			fmt.Println(i, currentReportsTargetDC)
 			if m != "" && !strings.Contains(m, "<") {
 				//Create new mtrReport
 				mtrReport := dataObjects.MtrReport{}
@@ -144,8 +148,6 @@ func ParseSshDataIntoMtrReport(rawData string) []dataObjects.MtrReport {
 							if len(f) > 0 {
 								var nonAlphanumericRegex = regexp.MustCompile(`[^a-zA-z0-9 ]+`)
 								hn := nonAlphanumericRegex.ReplaceAllString(f[0], "")
-								// hn = strings.Replace(hn, ".", "", 1) // Why? random mtr's threw errors because the hop number (f[0]) only had a "." instead of ".|--"
-								// hn = strings.Replace(hn, "|--", "", 1)
 
 								hop.HopNumber = ParseStringToInt(hn)
 								if len(f) > 1 {
@@ -179,7 +181,7 @@ func ParseSshDataIntoMtrReport(rawData string) []dataObjects.MtrReport {
 					}
 				}
 
-				lastHopHost := "No Hops in Report"
+				lastHopHost := ""
 				if len(mtrReport.Hops) > 0 {
 					//Verify the data center using the final hop hostname
 					lastHopHost = mtrReport.Hops[len(mtrReport.Hops)-1].Hostname
@@ -190,8 +192,13 @@ func ParseSshDataIntoMtrReport(rawData string) []dataObjects.MtrReport {
 					lastHopDataCenter := strings.Replace(lastHopHost, "util", "", 1)
 					lastHopDataCenter = strings.Replace(lastHopDataCenter, "eqnx", "", 1)
 					mtrReport.DataCenter = lastHopDataCenter
+				}
+
+				if strings.ToLower(mtrReport.DataCenter) == strings.ToLower(currentReportsTargetDC) {
+					mtrReport.Success = true
 				} else {
-					mtrReport.DataCenter = "na"
+					mtrReport.Success = false
+					mtrReport.DataCenter = currentReportsTargetDC
 				}
 
 				mtrReports = append(mtrReports, mtrReport)

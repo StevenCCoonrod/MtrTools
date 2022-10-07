@@ -133,9 +133,9 @@ func GetBatchSyncboxMtrReports(syncboxes []string, targetDate time.Time) []dataO
 		mtrLogFilenames := getBatchSyncboxLogFilenames(conn, syncboxes, targetDate)
 
 		if len(mtrLogFilenames) > 0 {
-			rawMtrData := getBatchSyncboxMtrData(conn, syncboxes, mtrLogFilenames, targetDate)
+			rawMtrData, targetDCs := getBatchSyncboxMtrData(conn, syncboxes, mtrLogFilenames, targetDate)
 			// fmt.Println("Got Log Data...", len(rawMtrData))
-			mtrReports = sshDataAccess.ParseSshDataIntoMtrReport(rawMtrData)
+			mtrReports = sshDataAccess.ParseSshDataIntoMtrReport(rawMtrData, targetDCs)
 			// fmt.Println("Parsed data into reports...", len(mtrReports))
 
 			batchReports = append(batchReports, mtrReports...)
@@ -177,11 +177,11 @@ func getBatchSyncboxLogFilenames(conn *ssh.Client, syncboxes []string, targetDat
 
 // Step 2 in the MTR Data collection process.
 // Returns the log data for each log file found in the func getBatchSyncboxLogFilenames()
-func getBatchSyncboxMtrData(conn *ssh.Client, syncboxes []string, mtrLogFilenames []string, targetDate time.Time) string {
+func getBatchSyncboxMtrData(conn *ssh.Client, syncboxes []string, mtrLogFilenames []string, targetDate time.Time) (string, []string) {
 	validMonth := sshDataAccess.ValidateDateField(fmt.Sprint(int32(targetDate.Month())))
 	validDay := sshDataAccess.ValidateDateField(fmt.Sprint(targetDate.Day()))
 	var batchDataString string
-
+	var targetDCs []string
 	// Target each Syncbox directory in this batch, build and run a command for each log file provided
 	for _, s := range syncboxes {
 		var command string
@@ -196,12 +196,15 @@ func getBatchSyncboxMtrData(conn *ssh.Client, syncboxes []string, mtrLogFilename
 					validMonth + "/" +
 					validDay + "/" + strings.ToLower(s) + "/"
 				command += l
+
+				targetDC := strings.Split(l, "-")[7]
+				targetDCs = append(targetDCs, targetDC)
+
 				// Run the command
 				dataReturned, err = runBatchMtrClientCommand(conn, command)
 				if err != nil {
 					if strings.Contains(err.Error(), "Process exited with status 1") {
-						//Do nothing. This just means one of the Syncbox directories did not return any data
-						//The other Syncbox directories in the batch may have returned data
+						//Do nothing. No data returned.
 					} else {
 						fmt.Println("Error running command on SSH Server.\n" + err.Error())
 					}
@@ -213,7 +216,7 @@ func getBatchSyncboxMtrData(conn *ssh.Client, syncboxes []string, mtrLogFilename
 		}
 	}
 
-	return batchDataString
+	return batchDataString, targetDCs
 }
 
 // Uses an ssh connection and runs the given command, returning any data and errors
