@@ -11,8 +11,8 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-var sshUser string = "stevec"
-var sshPassword string = "3brahman3"
+var sshUser string = ""
+var sshPassword string = ""
 var sshTargetHost string = "master.syncbak.com:22"
 var BaseDirectory string = "/var/log/syncbak/catcher-mtrs/"
 
@@ -22,7 +22,7 @@ func GetSyncboxList() []string {
 	date := time.Now()
 	validMonth := ValidateDateField(fmt.Sprint(int32(date.Month())))
 	validDay := ValidateDateField(fmt.Sprint(date.Day()))
-	//var syncboxList []string
+	var syncboxList []string
 
 	command := "ls " + BaseDirectory +
 		fmt.Sprint(date.Year()) + "/" +
@@ -41,8 +41,14 @@ func GetSyncboxList() []string {
 	// 		syncboxList = append(syncboxList, s)
 	// 	}
 	// }
-	return tempSyncboxList
-	//return syncboxList
+	for _, s := range tempSyncboxList {
+		if len(strings.TrimSpace(s)) > 0 {
+			syncboxList = append(syncboxList, s)
+		}
+	}
+
+	// return tempSyncboxList
+	return syncboxList
 }
 
 // Gets the FILE NAMES of ALL logs in the specified date and syncbox directory
@@ -106,7 +112,7 @@ func ParseSshDataIntoMtrReport(rawData string, targetDCs []string) []dataObjects
 				currentReportsTargetDC = targetDCs[i]
 			}
 
-			fmt.Println(i, currentReportsTargetDC)
+			// fmt.Println(i, currentReportsTargetDC)
 			if m != "" && !strings.Contains(m, "<") {
 				//Create new mtrReport
 				mtrReport := dataObjects.MtrReport{}
@@ -138,67 +144,39 @@ func ParseSshDataIntoMtrReport(rawData string, targetDCs []string) []dataObjects
 						mtrReport.SyncboxID = strings.ToLower(s)
 						//Otherwise, each line is a hop in the traceroute
 					} else {
-						if l != "" {
-							//Create new hop
-							hop := dataObjects.MtrHop{}
-							//Split the line by fields and parse a new hop
-							f := strings.Fields(l)
+						if l != "" && !strings.Contains(l, "HOST") {
+							mtrReport = parseHopsForReport(l, mtrReport)
+						} else if strings.Contains(l, "HOST") {
 
-							//Painful way of checking that fields are not null
-							if len(f) > 0 {
-								var nonAlphanumericRegex = regexp.MustCompile(`[^a-zA-z0-9 ]+`)
-								hn := nonAlphanumericRegex.ReplaceAllString(f[0], "")
-
-								hop.HopNumber = ParseStringToInt(hn)
-								if len(f) > 1 {
-									hop.Hostname = f[1]
-								}
-								if len(f) > 2 {
-									pl := strings.Replace(f[2], "%", "", 1)
-									hop.PacketLoss = ParseStringToFloat32(pl)
-								}
-								if len(f) > 3 {
-									hop.PacketsSent = ParseStringToInt(f[3])
-								}
-								if len(f) > 4 {
-									hop.LastPing = ParseStringToFloat32(f[4])
-								}
-								if len(f) > 5 {
-									hop.AveragePing = ParseStringToFloat32(f[5])
-								}
-								if len(f) > 6 {
-									hop.BestPing = ParseStringToFloat32(f[6])
-								}
-								if len(f) > 7 {
-									hop.WorstPing = ParseStringToFloat32(f[7])
-								}
-								if len(f) > 8 {
-									hop.StdDev = ParseStringToFloat32(f[8])
-								}
-								mtrReport.Hops = append(mtrReport.Hops, hop)
+							s := strings.Replace(l, "HOST: ", "", 1)
+							if strings.Contains(s, ".") {
+								s = strings.Split(s, ".")[0]
+							} else {
+								s = strings.Split(s, " ")[0]
 							}
+							mtrReport.SyncboxID = strings.ToLower(s)
+							mtrReport = parseHopsForReport(l, mtrReport)
 						}
 					}
 				}
+				mtrReport.DataCenter = currentReportsTargetDC
 
-				lastHopHost := ""
+				var lastHopDataCenter string
 				if len(mtrReport.Hops) > 0 {
 					//Verify the data center using the final hop hostname
-					lastHopHost = mtrReport.Hops[len(mtrReport.Hops)-1].Hostname
+					lastHopHost := mtrReport.Hops[len(mtrReport.Hops)-1].Hostname
+					if strings.Contains(lastHopHost, "util") {
+						lastHopDataCenter := strings.Replace(lastHopHost, "util", "", 1)
+						lastHopDataCenter = strings.Replace(lastHopDataCenter, "eqnx", "", 1)
+					}
 				}
-
-				if len(mtrReport.Hops) >= 1 && strings.Contains(lastHopHost, "util") {
-
-					lastHopDataCenter := strings.Replace(lastHopHost, "util", "", 1)
-					lastHopDataCenter = strings.Replace(lastHopDataCenter, "eqnx", "", 1)
-					mtrReport.DataCenter = lastHopDataCenter
-				}
-
-				if strings.ToLower(mtrReport.DataCenter) == strings.ToLower(currentReportsTargetDC) {
+				fmt.Println("Last Hop DC:", lastHopDataCenter, "\tCurrent Reports DC:", currentReportsTargetDC)
+				if strings.ToLower(lastHopDataCenter) == strings.ToLower(currentReportsTargetDC) {
 					mtrReport.Success = true
+					fmt.Println("Report has successful path")
 				} else {
 					mtrReport.Success = false
-					mtrReport.DataCenter = currentReportsTargetDC
+					fmt.Println(m)
 				}
 
 				mtrReports = append(mtrReports, mtrReport)
@@ -207,6 +185,49 @@ func ParseSshDataIntoMtrReport(rawData string, targetDCs []string) []dataObjects
 	}
 
 	return mtrReports
+}
+
+func parseHopsForReport(l string, mtrReport dataObjects.MtrReport) dataObjects.MtrReport {
+
+	//Create new hop
+	hop := dataObjects.MtrHop{}
+	//Split the line by fields and parse a new hop
+	f := strings.Fields(l)
+
+	//Painful way of checking that fields are not null
+	if len(f) > 0 {
+		var nonAlphanumericRegex = regexp.MustCompile(`[^a-zA-z0-9 ]+`)
+		hn := nonAlphanumericRegex.ReplaceAllString(f[0], "")
+
+		hop.HopNumber = ParseStringToInt(hn)
+		if len(f) > 1 {
+			hop.Hostname = f[1]
+		}
+		if len(f) > 2 {
+			pl := strings.Replace(f[2], "%", "", 1)
+			hop.PacketLoss = ParseStringToFloat32(pl)
+		}
+		if len(f) > 3 {
+			hop.PacketsSent = ParseStringToInt(f[3])
+		}
+		if len(f) > 4 {
+			hop.LastPing = ParseStringToFloat32(f[4])
+		}
+		if len(f) > 5 {
+			hop.AveragePing = ParseStringToFloat32(f[5])
+		}
+		if len(f) > 6 {
+			hop.BestPing = ParseStringToFloat32(f[6])
+		}
+		if len(f) > 7 {
+			hop.WorstPing = ParseStringToFloat32(f[7])
+		}
+		if len(f) > 8 {
+			hop.StdDev = ParseStringToFloat32(f[8])
+		}
+		mtrReport.Hops = append(mtrReport.Hops, hop)
+	}
+	return mtrReport
 }
 
 // Helper method to provide valid date fields for mtr directories ("07" instead of "7")

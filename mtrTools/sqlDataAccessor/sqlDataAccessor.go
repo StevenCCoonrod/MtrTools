@@ -27,8 +27,8 @@ var server = "dashboard-qa-20190305.cunftndptrif.us-east-1.rds.amazonaws.com"
 // MySql
 var port = 3306
 
-var user = "strmdashdb"
-var password = "Syncbak01!"
+var user = ""
+var password = ""
 var database = "NetopsToolsDB"
 
 var db *sql.DB
@@ -71,7 +71,6 @@ func InsertMtrReports(mtrReports []dataObjects.MtrReport) int {
 					}
 
 				} else if reportID != 0 {
-					fmt.Println("Report", reportID, "inserted")
 					// Insert hops for report
 					var successfulHopInsertion bool
 					for _, h := range report.Hops {
