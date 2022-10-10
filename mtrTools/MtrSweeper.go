@@ -82,13 +82,13 @@ func updateSyncboxList() {
 		}
 	}
 	dbSyncboxList = sqlDataAccessor.SelectAllSyncboxes()
-	for _, s := range dbSyncboxList {
-		// if !slices.Contains(sshSyncboxList, strings.ToLower(s)) {
-		// 	updatedList = removeSliceElement(dbSyncboxList, i)
-		// }
-		if strings.Contains(s, "-2309") {
-			updatedList = append(updatedList, s)
+	for i, s := range dbSyncboxList {
+		if !slices.Contains(sshSyncboxList, strings.ToLower(s)) {
+			updatedList = removeSliceElement(dbSyncboxList, i)
 		}
+		// if strings.Contains(s, "-2309") {
+		// 	updatedList = append(updatedList, s)
+		// }
 	}
 	if updatedList != nil {
 		_SyncboxList = updatedList
@@ -181,11 +181,12 @@ func getBatchSyncboxLogFilenames(conn *ssh.Client, syncboxes []string, targetDat
 
 // Step 2 in the MTR Data collection process.
 // Returns the log data for each log file found in the func getBatchSyncboxLogFilenames()
-func getBatchSyncboxMtrData(conn *ssh.Client, syncboxes []string, mtrLogFilenames []string, targetDate time.Time) (string, []string) {
+func getBatchSyncboxMtrData(conn *ssh.Client, syncboxes []string, mtrLogFilenames []string, targetDate time.Time) ([]string, []string) {
 	validMonth := sshDataAccess.ValidateDateField(fmt.Sprint(int32(targetDate.Month())))
 	validDay := sshDataAccess.ValidateDateField(fmt.Sprint(targetDate.Day()))
-	var batchDataString string
+	// var batchDataString string
 	var targetDCs []string
+	var rawReports []string
 	// Target each Syncbox directory in this batch, build and run a command for each log file provided
 	for _, s := range syncboxes {
 		var is2309 bool
@@ -194,6 +195,7 @@ func getBatchSyncboxMtrData(conn *ssh.Client, syncboxes []string, mtrLogFilename
 		}
 		var command string
 		var dataReturned string
+
 		for _, l := range mtrLogFilenames {
 			var err error
 			// Check that the filename contains the syncbox name so that only the data of log files for this box is returned
@@ -223,13 +225,13 @@ func getBatchSyncboxMtrData(conn *ssh.Client, syncboxes []string, mtrLogFilename
 					}
 				} else {
 					// Append the log data to the batch data string
-					batchDataString += dataReturned
+					rawReports = append(rawReports, dataReturned)
 				}
 			}
 		}
 	}
 
-	return batchDataString, targetDCs
+	return rawReports, targetDCs
 }
 
 // Uses an ssh connection and runs the given command, returning any data and errors
