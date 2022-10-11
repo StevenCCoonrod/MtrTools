@@ -185,14 +185,11 @@ func getBatchSyncboxMtrData(conn *ssh.Client, syncboxes []string, mtrLogFilename
 	validMonth := sshDataAccess.ValidateDateField(fmt.Sprint(int32(targetDate.Month())))
 	validDay := sshDataAccess.ValidateDateField(fmt.Sprint(targetDate.Day()))
 	// var batchDataString string
-	var targetDCs []string
+
 	var rawReports []string
 	// Target each Syncbox directory in this batch, build and run a command for each log file provided
 	for _, s := range syncboxes {
-		var is2309 bool
-		if strings.Contains(s, "-2309") {
-			is2309 = true
-		}
+
 		var command string
 		var dataReturned string
 
@@ -206,14 +203,6 @@ func getBatchSyncboxMtrData(conn *ssh.Client, syncboxes []string, mtrLogFilename
 					validMonth + "/" +
 					validDay + "/" + strings.ToLower(s) + "/"
 				command += l
-				var targetDC string
-				if is2309 {
-					targetDC = strings.Split(l, "-")[7]
-				} else {
-					targetDC = strings.Split(l, "-")[6]
-				}
-
-				targetDCs = append(targetDCs, targetDC)
 
 				// Run the command
 				dataReturned, err = runBatchMtrClientCommand(conn, command)
@@ -231,7 +220,7 @@ func getBatchSyncboxMtrData(conn *ssh.Client, syncboxes []string, mtrLogFilename
 		}
 	}
 
-	return rawReports, targetDCs
+	return rawReports, mtrLogFilenames
 }
 
 // Uses an ssh connection and runs the given command, returning any data and errors

@@ -95,95 +95,74 @@ func getSyncboxMtrData(conn *ssh.Client, syncbox string, targetDate time.Time) s
 }
 
 // Parses raw MTR data into a slice of MtrReports
-func ParseSshDataIntoMtrReport(rawData []string, targetDCs []string) []dataObjects.MtrReport {
+func ParseSshDataIntoMtrReport(rawData []string, LogFilenames []string) []dataObjects.MtrReport {
 
 	//Create the Report array to hold all the retrieved mtr Reports
 	var mtrReports []dataObjects.MtrReport
 
-	//rawData should contain ALL mtr data for ALL mtr log files in a specific syncbox directory
-	// rawMtrData := strings.Split(rawData, "Start: ")
-	// if len(rawMtrData) > 1 {
-	//At this point, the full data string should be split back into
-	//strings containing the data for each individual log file
 	var currentReportsTargetDC string
-	//Loop through each raw report string and parse into an MtrReport object
-	for i, m := range rawData {
-		if i < len(targetDCs) {
-			currentReportsTargetDC = targetDCs[i]
+	var currentReportsStartTime time.Time
+	var currentReportsHost string
+
+	// Loop through each raw report string and parse into an MtrReport object
+	// m = Single Mtr Raw Data
+	for h, m := range rawData {
+		currentDataLogFilename := LogFilenames[h]
+		logfilenameFields := strings.Split(currentDataLogFilename, "-")
+		if strings.Contains(currentDataLogFilename, "-2309") {
+			currentReportsHost = logfilenameFields[0] + "-" + logfilenameFields[1]
+			currentReportsStartTime = time.Date(ParseStringToInt(logfilenameFields[2]),
+				time.Month(ParseStringToInt(logfilenameFields[3])),
+				ParseStringToInt(logfilenameFields[4]),
+				ParseStringToInt(logfilenameFields[5]),
+				ParseStringToInt(logfilenameFields[6]), 0, 0, time.UTC)
+			currentReportsTargetDC = logfilenameFields[7]
+
+		} else {
+			currentReportsHost = logfilenameFields[0]
+			currentReportsStartTime = time.Date(ParseStringToInt(logfilenameFields[1]),
+				time.Month(ParseStringToInt(logfilenameFields[2])),
+				ParseStringToInt(logfilenameFields[3]),
+				ParseStringToInt(logfilenameFields[4]),
+				ParseStringToInt(logfilenameFields[5]), 0, 0, time.UTC)
+			currentReportsTargetDC = logfilenameFields[6]
 		}
 
-		// fmt.Println(i, currentReportsTargetDC)
 		if m != "" && !strings.Contains(m, "<") {
 			//Create new mtrReport
 			mtrReport := dataObjects.MtrReport{}
+			mtrReport.SyncboxID = currentReportsHost
+			mtrReport.DataCenter = currentReportsTargetDC
+			mtrReport.StartTime = currentReportsStartTime
 			//Split data into lines
 			lines := strings.Split(m, "\n")
 			//Iterate through each line in the data
-			for i, l := range lines {
+			for _, l := range lines {
 
 				//If its the first line, parse the StartTime datetime
-				if i == 0 {
-					p := strings.TrimSpace(l)
-					p = strings.Replace(l, "Start: ", "", 1)
-					startTime, err := time.Parse(time.ANSIC, p)
-					if err != nil {
-						fmt.Println("There was a problem parsing the mtr data.\n" + m + "\n" + err.Error())
-					} else {
-						mtrReport.StartTime = startTime
-					}
-
-					//If its the second line, remove everything that isn't the Syncbox ID
-				} else if i == 1 {
-					s := strings.Replace(l, "HOST: ", "", 1)
-					if strings.Contains(s, ".") {
-						s = strings.Split(s, ".")[0]
-					} else {
-						s = strings.Split(s, " ")[0]
-					}
-
-					mtrReport.SyncboxID = strings.ToLower(s)
-					//Otherwise, each line is a hop in the traceroute
-				} else {
-					if l != "" && !strings.Contains(l, "HOST") {
-						mtrReport = parseHopsForReport(l, mtrReport)
-					} else if strings.Contains(l, "HOST") {
-
-						s := strings.Replace(l, "HOST: ", "", 1)
-						if strings.Contains(s, ".") {
-							s = strings.Split(s, ".")[0]
-						} else {
-							s = strings.Split(s, " ")[0]
-						}
-						mtrReport.SyncboxID = strings.ToLower(s)
-						mtrReport = parseHopsForReport(l, mtrReport)
-					}
+				if !strings.Contains(strings.ToLower(l), "start") && !strings.Contains(strings.ToLower(l), "host") {
+					mtrReport = parseHopsForReport(l, mtrReport)
 				}
 			}
-			mtrReport.DataCenter = currentReportsTargetDC
 
 			var lastHopDataCenter string
 			if len(mtrReport.Hops) > 0 {
-				//Verify the data center using the final hop hostname
+				//Verify if traceroute was successful
 				lastHopHost := mtrReport.Hops[len(mtrReport.Hops)-1].Hostname
-				fmt.Println(lastHopHost)
 				if strings.Contains(lastHopHost, "util") {
 					lastHopDataCenter = strings.Replace(lastHopHost, "util", "", 1)
 					lastHopDataCenter = strings.Replace(lastHopDataCenter, "eqnx", "", 1)
 				}
 			}
-			fmt.Println("Last Hop DC:", lastHopDataCenter, "\tCurrent Reports DC:", currentReportsTargetDC)
-			if strings.ToLower(lastHopDataCenter) == strings.ToLower(currentReportsTargetDC) {
+			if strings.EqualFold(lastHopDataCenter, mtrReport.DataCenter) {
 				mtrReport.Success = true
-				fmt.Println("Report has successful path")
 			} else {
 				mtrReport.Success = false
-				fmt.Println(m)
 			}
 
 			mtrReports = append(mtrReports, mtrReport)
 		}
 	}
-	//}
 
 	return mtrReports
 }
