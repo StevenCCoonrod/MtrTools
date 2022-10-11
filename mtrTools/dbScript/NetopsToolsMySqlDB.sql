@@ -13,10 +13,11 @@ CREATE TABLE `NetopsToolsDB`.`Syncbox`
 
 CREATE TABLE `NetopsToolsDB`.`MtrReport`
 (
-	`MtrReportID`		INT				NOT NULL AUTO_INCREMENT,
-	`SyncboxID`			VARCHAR(15)		NOT NULL,
-	`StartTime`			DATETIME		NOT NULL,
-	`DataCenter`		VARCHAR(2),
+	`MtrReportID`		INT			NOT NULL AUTO_INCREMENT,
+	`SyncboxID`		VARCHAR(15)		NOT NULL,
+	`StartTime`		DATETIME		NOT NULL,
+	`DataCenter`		VARCHAR(2) 		NOT NULL,
+	`Success`		BOOL			NOT NULL	DEFAULT 0,		
 	
 	CONSTRAINT `fk_SyncboxID` FOREIGN KEY (`SyncboxID`)  REFERENCES `Syncbox`(`SyncboxID`),
 	CONSTRAINT `pk_MtrReportID` PRIMARY KEY (`MtrReportID`)

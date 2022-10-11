@@ -59,7 +59,7 @@ func InsertMtrReports(mtrReports []dataObjects.MtrReport) int {
 		//Insert the Report
 		var reportID int
 		if report.SyncboxID != "" && report.DataCenter != "" {
-			rowReturned := db.QueryRowContext(ctx, "call sp_InsertMtrReport(?,?,?)", report.SyncboxID, report.StartTime, report.DataCenter)
+			rowReturned := db.QueryRowContext(ctx, "call sp_InsertMtrReport(?,?,?,?)", report.SyncboxID, report.StartTime, report.DataCenter, report.Success)
 			if rowReturned.Err() == nil && rowReturned != nil {
 				err := rowReturned.Scan(&reportID)
 				if err != nil {
@@ -146,7 +146,7 @@ func SelectMtrReports_BySyncbox_Timeframe(syncbox string, startTime time.Time, e
 	var dataReturned *sql.Rows
 	var reportsReturned []dataObjects.MtrReport
 	defer db.Close()
-	dataReturned, err = db.QueryContext(ctx, "call `sp_SelectAllMtrs_BySyncbox_WithinRange`(?,?,?)", syncbox, startTime, endTime)
+	dataReturned, err = db.QueryContext(ctx, "call `sp_SelectAllMtrs_BySyncbox_WithinRange`(?,?,?,?)", syncbox, startTime, endTime)
 	if err != nil {
 		fmt.Println("Error selecting mtr report. ", err.Error())
 	}
@@ -240,18 +240,17 @@ func parseDBReports(db *sql.DB, ctx context.Context, sqlRowData *sql.Rows) []dat
 	var syncboxID, dataCenter *string
 	var startTime *time.Time
 	var reportID *int
-	fmt.Println("Now we're parsin")
+	var success *bool
 	var report dataObjects.MtrReport
 	for sqlRowData.Next() {
-		if err := sqlRowData.Scan(&reportID, &syncboxID, &startTime, &dataCenter); err != nil {
+		if err := sqlRowData.Scan(&reportID, &syncboxID, &startTime, &dataCenter, &success); err != nil {
 			fmt.Println(err.Error())
 		} else {
-			report = dataObjects.MtrReport{ReportID: *reportID, SyncboxID: *syncboxID, StartTime: *startTime, DataCenter: *dataCenter}
+			report = dataObjects.MtrReport{ReportID: *reportID, SyncboxID: *syncboxID, StartTime: *startTime, DataCenter: *dataCenter, Success: *success}
 			reports = append(reports, report)
 		}
 	}
 	sqlRowData.Close()
-	fmt.Println("Got reports, now their hops...")
 	reportsWithHops := SelectHopsForReports(db, ctx, reports)
 
 	return reportsWithHops

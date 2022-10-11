@@ -21,11 +21,13 @@ type MtrHop struct {
 }
 
 type MtrReport struct {
-	ReportID   int       `json:"ReportID"`
-	SyncboxID  string    `json:"SyncboxID"`
-	StartTime  time.Time `json:"StartTime"`
-	DataCenter string    `json:"DataCenter"`
-	Hops       []MtrHop  `json:"Hops"`
+	ReportID    int       `json:"ReportID"`
+	SyncboxID   string    `json:"SyncboxID"`
+	StartTime   time.Time `json:"StartTime"`
+	DataCenter  string    `json:"DataCenter"`
+	Success     bool      `json:"Success"`
+	Hops        []MtrHop  `json:"Hops"`
+	LogFilename string
 }
 
 // Prints out an Mtr Report with properly aligned fields

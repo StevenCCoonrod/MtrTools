@@ -25,7 +25,7 @@ func GetSyncboxMtrReports(syncbox string, targetDate time.Time) ([]dataObjects.M
 			rawMtrData := getSyncboxMtrData(conn, syncbox, targetDate)
 			//fmt.Println("Got Log Data...")
 			if len(rawMtrData) > 0 {
-				mtrReports = ParseSshDataIntoMtrReport(rawMtrData)
+				// mtrReports = ParseSshDataIntoMtrReport(rawMtrData, nil)
 
 			} else {
 				syncboxStatus = "Firewall"
