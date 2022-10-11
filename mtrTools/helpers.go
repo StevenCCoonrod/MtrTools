@@ -96,6 +96,14 @@ func validateTimeframe(startTime time.Duration, endTime time.Duration) bool {
 	return validTimes
 }
 
+// Helper method to provide valid date fields for mtr directories ("07" instead of "7")
+func validateDateField(dateField string) string {
+	if len(dateField) == 1 {
+		dateField = "0" + dateField
+	}
+	return dateField
+}
+
 // Sets the values provided for the flags accepted by the program
 func setFlags() (time.Duration, time.Duration, string, string) {
 	var all bool

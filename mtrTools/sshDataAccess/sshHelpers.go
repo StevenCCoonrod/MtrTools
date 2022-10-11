@@ -33,7 +33,7 @@ func GetSyncboxList() []string {
 	if err != nil {
 		fmt.Println(err)
 	}
-	defer conn.Close()
+	//defer conn.Close()
 
 	tempSyncboxList := strings.Split(data, "\n")
 	// for _, s := range tempSyncboxList {

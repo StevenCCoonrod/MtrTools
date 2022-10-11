@@ -116,10 +116,3 @@ func RunClientCommand(conn *ssh.Client, command string) (string, error) {
 
 	return buff.String(), err2
 }
-
-// func runLocalCommand(command string) (string, error) {
-// 	cmd := exec.Command(command)
-// 	if err := cmd.Run(); err != nil {
-
-// 	}
-// }
