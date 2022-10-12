@@ -147,7 +147,6 @@ func getMtrData(syncbox string, searchStartTime time.Time, startTime time.Durati
 func initialize() {
 	_SyncboxList = sqlDataAccessor.SelectAllSyncboxes()
 	_StartTime, _EndTime, _DataCenter, _Hostname = setFlags()
-
 	_SyncboxArgs = processSyncboxArgs(flag.Args())
 }
 
